@@ -93,6 +93,8 @@ section { display: grid; gap: 12px; }
 .head-row { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 10px; }
 .panel { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 16px; }
 .chart-box { position: relative; height: 300px; }
+.chart-fallback { height: 100%; }
+.chart-fallback svg { display: block; width: 100%; height: 100%; }
 .scen { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
 .scen div { display: grid; gap: 2px; padding-left: 10px; border-left: 3px solid var(--sc); }
 .scen span { font-size: .8rem; color: var(--muted); }
@@ -163,7 +165,7 @@ footer { font-size: .8rem; color: var(--muted); display: grid; gap: 4px; }
       <div class="tabs" id="tabs" role="group" aria-label="Choose goal"></div>
     </div>
     <div class="panel">
-      <div class="chart-box"><canvas id="chart" aria-label="Portfolio value history and forecast"></canvas></div>
+      <div class="chart-box"><div id="chartFallback" class="chart-fallback"></div><canvas id="chart" hidden aria-label="Portfolio value history and forecast"></canvas></div>
     </div>
     <div class="scen" id="scen"></div>
     <p class="note">History shows what your current holdings were worth each week. Forecasts assume a monthly deposit and a yearly return; they are estimates, not promises.</p>
@@ -256,7 +258,12 @@ footer { font-size: .8rem; color: var(--muted); display: grid; gap: 4px; }
 
   // Chart
   function drawChart() {
+    // If the chart library can't load (offline, email preview), the pre-drawn chart stays visible
     if (!window.Chart) return;
+    try { drawLiveChart(); $("chart").hidden = false; $("chartFallback").hidden = true; }
+    catch (err) { console.error(err); $("chart").hidden = true; $("chartFallback").hidden = false; }
+  }
+  function drawLiveChart() {
     const hist = d.history.map((h) => ({ x: h.date, y: h.total_aud }));
     const last = hist[hist.length - 1];
     const ds = [{
