@@ -108,7 +108,8 @@ def fetch_live(holdings):
         for h in holdings:
             rate = 1.0 if h["currency"] == "AUD" else float(row[f"{h['currency']}AUD=X"])
             total += h["quantity"] * float(row[h["ticker"]]) * rate
-        history.append({"date": idx.date().isoformat(), "total_aud": round(total)})
+        if idx.date() <= date.today():  # skip the unfinished current week (its label is a future Friday)
+            history.append({"date": idx.date().isoformat(), "total_aud": round(total)})
     return prices, fx, history
 
 
