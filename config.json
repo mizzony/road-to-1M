@@ -47,5 +47,10 @@
       "monthly": 6000,
       "annual_return": 0.1
     }
-  ]
+  ],
+  "alerts": {
+    "stock_day_move_pct": 8,
+    "portfolio_day_move_pct": 3,
+    "rating_lookback_hours": 26
+  }
 }

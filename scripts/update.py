@@ -16,6 +16,7 @@ from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
+LAST_CLOSE = None  # price table from the last fetch_live() call (used by alerts.py)
 CONFIG = json.loads((ROOT / "config.json").read_text())
 SITE = ROOT / "site"
 
@@ -78,6 +79,8 @@ def fetch_live(holdings):
                         auto_adjust=False)["Close"].ffill()
     if close.empty:
         raise SystemExit("::error::Could not download prices from Yahoo Finance (no internet?).")
+    global LAST_CLOSE
+    LAST_CLOSE = close
     bad_fx = [t for t in fx_tickers if t not in close.columns or close[t].isna().all()]
     if bad_fx:
         raise SystemExit(f"::error::No exchange rate for: {', '.join(bad_fx)}")

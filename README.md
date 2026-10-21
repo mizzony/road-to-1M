@@ -11,6 +11,12 @@ Every Monday it:
 
 **Stack:** Python · yfinance · Chart.js · GitHub Actions · GitHub Pages
 
+## Daily smart alerts
+
+`.github/workflows/daily-alerts.yml` runs every weekday morning (Melbourne) and emails **only** when something important happened:
+a holding moves 8%+ in a day, the portfolio moves 3%+ in a day, an analyst upgrade/downgrade on a stock you own, or a goal is reached.
+Thresholds are in `config.json` → `alerts`. A Claude scheduled task turns the alert email into a phone notification.
+
 ## Updating holdings (locked file)
 
 Real holdings live in `holdings.csv.age`, a locked (encrypted) file. It is safe in a public repo:

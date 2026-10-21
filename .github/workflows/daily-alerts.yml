@@ -1,0 +1,31 @@
+name: Daily smart alerts
+
+on:
+  schedule:
+    # Tue-Sat 9:30am Melbourne (AEDT) = Mon-Fri 22:30 UTC, after the US market closes.
+    # From April to October (AEST) this runs at 8:30am.
+    - cron: "30 22 * * 1-5"
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+jobs:
+  alerts:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+      - run: pip install -r requirements.txt
+      - name: Check for important changes (email only if something happened)
+        env:
+          HOLDINGS_KEY: ${{ secrets.HOLDINGS_KEY }}
+          GMAIL_USER: ${{ secrets.GMAIL_USER }}
+          GMAIL_APP_PASSWORD: ${{ secrets.GMAIL_APP_PASSWORD }}
+          EMAIL_TO: ${{ secrets.EMAIL_TO }}
+        run: |
+          python scripts/unlock_holdings.py
+          cd scripts && python alerts.py --holdings ../holdings.csv
+          rm -f ../holdings.csv
