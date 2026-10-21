@@ -96,6 +96,8 @@ def build_dashboard():
     tag = '<script src="data.js"></script>'
     if tag not in page:
         raise SystemExit("site/index.html is missing the data.js script tag")
+    from static_render import render
+    page = render(page, d)  # numbers written in, so it works even without JavaScript
     return page.replace(tag, "<script>" + data_js + "</script>")
 
 
