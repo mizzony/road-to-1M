@@ -1,0 +1,9 @@
+ticker,name,asset_class,quantity,cost_per_unit,currency
+AAPL,Apple,US share,40,170,USD
+MSFT,Microsoft,US share,15,330,USD
+NVDA,Nvidia,US share,40,95,USD
+VOO,Vanguard S&P 500 ETF,ETF,10,420,USD
+VGE.AX,Vanguard Emerging Markets ETF,ETF,150,72,AUD
+PTT.BK,PTT,Thai share,3000,34,THB
+CPALL.BK,CP All,Thai share,2000,58,THB
+GC=F,Gold (troy oz),Gold,2,2300,USD

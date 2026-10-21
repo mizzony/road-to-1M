@@ -1,0 +1,15 @@
+{
+  "goal_aud": 100000,
+  "target_date": "2027-07-31",
+  "site_url": "",
+  "rating_lookback_days": 7,
+  "key_firms": [
+    "JP Morgan", "JPMorgan", "Goldman Sachs", "Morgan Stanley",
+    "Bank of America", "Citigroup", "Barclays", "UBS", "Wells Fargo"
+  ],
+  "scenarios": [
+    { "name": "Slow",   "monthly": 3000, "annual_return": 0.00 },
+    { "name": "Normal", "monthly": 4000, "annual_return": 0.06 },
+    { "name": "Strong", "monthly": 5000, "annual_return": 0.10 }
+  ]
+}

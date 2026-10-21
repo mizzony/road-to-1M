@@ -1,0 +1,7 @@
+# Your real holdings and outputs never go to GitHub
+holdings.csv
+email_preview.html
+site/data.js
+site/data.json
+__pycache__/
+.venv/

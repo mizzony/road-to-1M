@@ -1,0 +1,56 @@
+name: Weekly portfolio update
+
+on:
+  schedule:
+    # Monday 8:00am Melbourne (AEDT, UTC+11) = Sunday 21:00 UTC.
+    # From April to October (AEST, UTC+10) this runs at 7:00am instead.
+    - cron: "0 21 * * 0"
+  workflow_dispatch: {}   # lets you click "Run workflow" by hand
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install -r requirements.txt
+
+      # 1) REAL data -> private weekly email only (never published)
+      - name: Build real report and send email
+        if: github.event_name != 'push'
+        env:
+          HOLDINGS_CSV: ${{ secrets.HOLDINGS_CSV }}
+          GMAIL_USER: ${{ secrets.GMAIL_USER }}
+          GMAIL_APP_PASSWORD: ${{ secrets.GMAIL_APP_PASSWORD }}
+          EMAIL_TO: ${{ secrets.EMAIL_TO }}
+        run: |
+          if [ -z "$HOLDINGS_CSV" ]; then
+            echo "No HOLDINGS_CSV secret yet - sending a demo email instead"
+            python scripts/update.py --demo
+          else
+            printf '%s\n' "$HOLDINGS_CSV" > holdings.csv
+            python scripts/update.py --holdings holdings.csv
+            rm holdings.csv
+          fi
+          if [ -n "$GMAIL_USER" ]; then python scripts/send_email.py; else echo "No email secrets - skipping email"; fi
+
+      # 2) DEMO data -> public GitHub Pages site
+      - name: Build public demo site
+        run: python scripts/update.py --demo
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: site
+      - id: deploy
+        uses: actions/deploy-pages@v4

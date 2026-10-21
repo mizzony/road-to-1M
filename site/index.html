@@ -1,0 +1,297 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Road to 100K</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: one narrow column, goal first, then forecast, changes, allocation, holdings */
+:root {
+  --bg: #F2F4F3;
+  --surface: #FFFFFF;
+  --ink: #15211D;
+  --muted: #5E6B66;
+  --line: #DCE2DF;
+  --gold: #A9771F;
+  --gold-soft: #F1E4C8;
+  --teal: #2D6B5E;
+  --up: #2E7D4F;
+  --down: #B3412F;
+  --f-display: "Bricolage Grotesque", "Segoe UI", system-ui, sans-serif;
+  --f-body: "IBM Plex Sans", "Segoe UI", system-ui, sans-serif;
+  --f-mono: "IBM Plex Mono", ui-monospace, Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #101715; --surface: #172220; --ink: #E7ECE9; --muted: #95A39D; --line: #2A3835;
+    --gold: #E0B25A; --gold-soft: #3A3020; --teal: #6DB7A5; --up: #6CC08E; --down: #EE8D7B;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #101715; --surface: #172220; --ink: #E7ECE9; --muted: #95A39D; --line: #2A3835;
+  --gold: #E0B25A; --gold-soft: #3A3020; --teal: #6DB7A5; --up: #6CC08E; --down: #EE8D7B;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body {
+  margin: 0; background: var(--bg); color: var(--ink);
+  font: 15px/1.55 var(--f-body);
+}
+.wrap {
+  max-width: 920px; margin: 0 auto;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 28px 56px;
+  display: grid; gap: 28px;
+}
+.num { font-family: var(--f-mono); font-variant-numeric: tabular-nums; }
+.up { color: var(--up); } .down { color: var(--down); }
+h1, h2 { font-family: var(--f-display); margin: 0; text-wrap: balance; }
+h2 { font-size: 1.15rem; font-weight: 700; }
+.label { font-size: .72rem; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+
+header { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 8px 16px; }
+header h1 { font-size: 1.5rem; }
+.meta { display: flex; gap: 10px; align-items: center; color: var(--muted); font-size: .85rem; }
+.badge { font-size: .7rem; font-weight: 600; letter-spacing: .06em; text-transform: uppercase;
+  padding: 2px 8px; border-radius: 999px; background: var(--gold-soft); color: var(--gold); }
+
+/* Goal */
+.goal { display: grid; gap: 18px; }
+.total { font-family: var(--f-display); font-weight: 700; font-size: clamp(2.6rem, 9vw, 4.2rem); line-height: 1; letter-spacing: -.02em; }
+.total small { font-family: var(--f-body); font-size: .9rem; font-weight: 500; color: var(--muted); letter-spacing: 0; margin-left: 6px; }
+.bar { position: relative; height: 14px; background: var(--line); border-radius: 7px; overflow: hidden; }
+.bar > span { position: absolute; inset: 0 auto 0 0; background: linear-gradient(90deg, var(--teal), var(--gold)); border-radius: 7px; }
+.ticks { display: flex; justify-content: space-between; font-size: .75rem; color: var(--muted); margin-top: 6px; }
+.stats { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 1px; background: var(--line); border: 1px solid var(--line); border-radius: 10px; overflow: hidden; }
+.stats div { background: var(--surface); padding: 12px 14px; display: grid; gap: 2px; }
+.stats b { font-family: var(--f-mono); font-weight: 500; font-size: 1.05rem; font-variant-numeric: tabular-nums; }
+@media (max-width: 640px) { .stats { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+
+section { display: grid; gap: 12px; }
+.panel { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 16px; }
+.chart-box { position: relative; height: 300px; }
+.scen { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+.scen div { display: grid; gap: 2px; padding-left: 10px; border-left: 3px solid var(--sc); }
+.scen span { font-size: .8rem; color: var(--muted); }
+@media (max-width: 520px) { .scen { grid-template-columns: 1fr; } }
+.note { font-size: .85rem; color: var(--muted); margin: 0; }
+
+/* Analyst changes */
+.changes { list-style: none; margin: 0; padding: 0; display: grid; }
+.changes li { display: grid; grid-template-columns: 70px 64px minmax(0, 1fr) auto; gap: 10px; align-items: center; padding: 10px 0; border-top: 1px solid var(--line); }
+.changes li:first-child { border-top: 0; }
+.changes .tk { font-family: var(--f-mono); font-weight: 500; }
+.changes .firm { font-weight: 600; }
+.chip { font-size: .7rem; font-weight: 600; text-transform: uppercase; letter-spacing: .05em; padding: 2px 8px; border-radius: 999px; white-space: nowrap; }
+.chip.up { background: color-mix(in srgb, var(--up) 15%, transparent); }
+.chip.down { background: color-mix(in srgb, var(--down) 15%, transparent); }
+.chip.same { color: var(--muted); background: var(--line); }
+.key { font-size: .65rem; color: var(--gold); font-weight: 600; letter-spacing: .06em; text-transform: uppercase; margin-left: 6px; }
+@media (max-width: 520px) { .changes li { grid-template-columns: 60px minmax(0, 1fr) auto; } .changes .date { display: none; } }
+
+/* Allocation */
+.alloc { display: flex; height: 26px; border-radius: 6px; overflow: hidden; gap: 2px; }
+.alloc span { display: block; }
+.legend { display: flex; flex-wrap: wrap; gap: 8px 18px; font-size: .85rem; }
+.legend i { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 6px; vertical-align: -1px; }
+
+/* Holdings */
+.table-wrap { overflow-x: auto; }
+table { width: 100%; border-collapse: collapse; font-size: .9rem; min-width: 560px; }
+th { text-align: left; font-weight: 500; font-size: .72rem; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); padding: 8px 10px; border-bottom: 1px solid var(--line); }
+td { padding: 9px 10px; border-bottom: 1px solid var(--line); }
+th.r, td.r { text-align: right; }
+td .sub { display: block; font-size: .78rem; color: var(--muted); }
+footer { font-size: .8rem; color: var(--muted); display: grid; gap: 4px; }
+</style>
+</head>
+<body>
+<main class="wrap">
+  <header>
+    <h1>Road to 100K</h1>
+    <div class="meta"><span id="mode" class="badge" hidden>Demo data</span><span id="updated"></span></div>
+  </header>
+
+  <section class="goal" aria-label="Goal progress">
+    <div>
+      <div class="label">Total portfolio</div>
+      <div class="total"><span id="total"></span><small>AUD</small></div>
+    </div>
+    <div>
+      <div class="bar" role="progressbar" aria-valuemin="0" aria-valuemax="100" id="bar"><span id="barFill"></span></div>
+      <div class="ticks"><span>$0</span><span id="pct"></span><span id="goalLabel"></span></div>
+    </div>
+    <div class="stats">
+      <div><span class="label">Still to go</span><b id="gap"></b></div>
+      <div><span class="label">This week</span><b id="week"></b></div>
+      <div><span class="label">Total gain</span><b id="gain"></b></div>
+      <div><span class="label">Needed / month</span><b id="needed"></b></div>
+    </div>
+  </section>
+
+  <section>
+    <h2>Forecast to <span id="targetLabel"></span></h2>
+    <div class="panel">
+      <div class="chart-box"><canvas id="chart" aria-label="Portfolio value history and forecast"></canvas></div>
+    </div>
+    <div class="scen" id="scen"></div>
+    <p class="note">History shows what your current holdings were worth each week. Forecasts assume a monthly deposit and a yearly return; they are estimates, not promises.</p>
+  </section>
+
+  <section>
+    <h2>Analyst changes this week</h2>
+    <div class="panel"><ul class="changes" id="changes"></ul></div>
+  </section>
+
+  <section>
+    <h2>Where your money is</h2>
+    <div class="alloc" id="alloc"></div>
+    <div class="legend" id="legend"></div>
+  </section>
+
+  <section>
+    <h2>Holdings</h2>
+    <div class="panel table-wrap">
+      <table>
+        <thead><tr><th>Holding</th><th>Type</th><th class="r">Price</th><th class="r">Value (AUD)</th><th class="r">Gain</th><th class="r">Weight</th></tr></thead>
+        <tbody id="rows"></tbody>
+      </table>
+    </div>
+  </section>
+
+  <footer>
+    <span id="fx"></span>
+    <span>Prices from Yahoo Finance. Analyst ratings are shown for information only and are not advice.</span>
+  </footer>
+</main>
+
+<script src="data.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<script>
+(function () {
+  const d = window.PORTFOLIO_DATA;
+  if (!d) { document.getElementById("total").textContent = "No data yet"; return; }
+  const $ = (id) => document.getElementById(id);
+  const aud = (n) => "$" + Math.round(n).toLocaleString("en-AU");
+  const signed = (n) => (n > 0 ? "+" : n < 0 ? "−" : "") + aud(Math.abs(n));
+  const css = (v) => getComputedStyle(document.documentElement).getPropertyValue(v).trim();
+  const target = new Date(d.target_date + "T00:00:00");
+  const targetText = target.toLocaleDateString("en-AU", { month: "long", year: "numeric" });
+
+  $("mode").hidden = d.mode !== "demo";
+  $("updated").textContent = "Updated " + d.generated_at;
+  $("total").textContent = aud(d.total_aud);
+  $("barFill").style.width = d.progress_pct + "%";
+  $("bar").setAttribute("aria-valuenow", d.progress_pct);
+  $("pct").textContent = d.progress_pct + "% of goal";
+  $("goalLabel").textContent = aud(d.goal_aud);
+  $("gap").textContent = aud(d.gap_aud);
+  const w = $("week");
+  if (d.week_change_aud == null) w.textContent = "–";
+  else { w.textContent = signed(d.week_change_aud); w.className = d.week_change_aud >= 0 ? "up" : "down"; }
+  $("gain").textContent = signed(d.gain_aud) + (d.gain_pct != null ? " (" + d.gain_pct + "%)" : "");
+  $("gain").className = d.gain_aud >= 0 ? "up" : "down";
+  $("needed").textContent = aud(d.forecast.required_monthly);
+  $("targetLabel").textContent = targetText;
+
+  // Scenarios
+  const scColors = { Slow: "--muted", Normal: "--teal", Strong: "--gold" };
+  $("scen").innerHTML = d.forecast.scenarios.map((s) => `
+    <div style="--sc: var(${scColors[s.name] || "--teal"})">
+      <strong>${s.name}</strong>
+      <span>${aud(s.monthly)}/mo · ${(s.annual_return * 100).toFixed(0)}% a year</span>
+      <span class="num">${aud(s.value_at_target)} by ${target.toLocaleDateString("en-AU", { month: "short", year: "numeric" })}</span>
+      <span>${s.goal_reached ? "Hits 100K in " + s.goal_reached : "Not within 5 years"}</span>
+    </div>`).join("");
+
+  // Chart
+  function drawChart() {
+    if (!window.Chart) return;
+    const hist = d.history.map((h) => ({ x: h.date, y: h.total_aud }));
+    const last = hist[hist.length - 1];
+    const ds = [{
+      label: "History", data: hist, borderColor: css("--ink"), borderWidth: 2,
+      pointRadius: 0, tension: 0.25, fill: { target: "origin" },
+      backgroundColor: css("--line"),
+    }];
+    d.forecast.scenarios.forEach((s) => {
+      ds.push({
+        label: s.name, borderColor: css(scColors[s.name] || "--teal"), borderWidth: 2,
+        borderDash: [5, 4], pointRadius: 0, tension: 0.2,
+        data: [last].concat(s.path.map((p) => ({ x: p.month + "-15", y: p.value }))),
+      });
+    });
+    const allDates = ds.flatMap((x) => x.data.map((p) => p.x));
+    ds.push({
+      label: "Goal", borderColor: css("--gold"), borderWidth: 1, pointRadius: 0,
+      data: [{ x: allDates[0], y: d.goal_aud }, { x: d.target_date, y: d.goal_aud }],
+    });
+    if (window._chart) window._chart.destroy();
+    window._chart = new Chart($("chart"), {
+      type: "line",
+      data: { datasets: ds },
+      options: {
+        maintainAspectRatio: false, animation: false,
+        parsing: { xAxisKey: "x", yAxisKey: "y" },
+        interaction: { mode: "nearest", intersect: false },
+        scales: {
+          x: { type: "category", labels: [...new Set(allDates)].sort(),
+               ticks: { color: css("--muted"), maxTicksLimit: 7, maxRotation: 0,
+                        callback(v) { const s = this.getLabelForValue(v); return new Date(s).toLocaleDateString("en-AU", { month: "short", year: "2-digit" }); } },
+               grid: { display: false } },
+          y: { ticks: { color: css("--muted"), callback: (v) => "$" + v / 1000 + "k" },
+               grid: { color: css("--line") }, suggestedMax: d.goal_aud * 1.1 },
+        },
+        plugins: {
+          legend: { labels: { color: css("--ink"), boxWidth: 14, boxHeight: 2 } },
+          tooltip: { callbacks: { label: (c) => c.dataset.label + ": " + aud(c.parsed.y) } },
+        },
+      },
+    });
+  }
+  drawChart();
+  matchMedia("(prefers-color-scheme: dark)").addEventListener?.("change", drawChart);
+  new MutationObserver(drawChart).observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
+
+  // Analyst changes
+  const verb = { up: "Upgrade", down: "Downgrade", main: "Kept", init: "New", reit: "Kept" };
+  const cls = { up: "up", down: "down" };
+  $("changes").innerHTML = d.rating_changes.length
+    ? d.rating_changes.map((c) => `
+      <li>
+        <span class="tk">${c.ticker}</span>
+        <span class="date label">${new Date(c.date).toLocaleDateString("en-AU", { day: "numeric", month: "short" })}</span>
+        <span><span class="firm">${c.firm}</span>${c.key_firm ? '<span class="key">Major bank</span>' : ""}<span class="sub" style="display:block;color:var(--muted);font-size:.82rem">${c.from && c.from !== c.to ? c.from + " → " : ""}${c.to}</span></span>
+        <span class="chip ${cls[c.action] || "same"}">${verb[c.action] || c.action}</span>
+      </li>`).join("")
+    : '<li><span class="note" style="grid-column:1/-1">No rating changes for your US shares this week.</span></li>';
+
+  // Allocation
+  const palette = ["--teal", "--gold", "--ink", "--muted", "--up"];
+  $("alloc").innerHTML = d.allocation.map((a, i) =>
+    `<span style="flex:${a.pct};background:var(${palette[i % palette.length]})" title="${a.asset_class} ${a.pct}%"></span>`).join("");
+  $("legend").innerHTML = d.allocation.map((a, i) =>
+    `<span><i style="background:var(${palette[i % palette.length]})"></i>${a.asset_class} <span class="num">${a.pct}%</span> · <span class="num">${aud(a.value_aud)}</span></span>`).join("");
+
+  // Holdings
+  $("rows").innerHTML = d.holdings.map((h) => `
+    <tr>
+      <td><strong>${h.name}</strong><span class="sub num">${h.ticker}</span></td>
+      <td>${h.asset_class}</td>
+      <td class="r num">${h.price.toLocaleString("en-AU")} <span class="sub">${h.currency}</span></td>
+      <td class="r num">${aud(h.value_aud)}</td>
+      <td class="r num ${h.gain_aud >= 0 ? "up" : "down"}">${signed(h.gain_aud)}<span class="sub">${h.gain_pct != null ? h.gain_pct + "%" : ""}</span></td>
+      <td class="r num">${h.weight_pct}%</td>
+    </tr>`).join("");
+
+  $("fx").textContent = "Exchange rates to AUD: " + Object.entries(d.fx).filter(([k]) => k !== "AUD")
+    .map(([k, v]) => "1 " + k + " = " + v.toFixed(4)).join(" · ");
+})();
+</script>
+</body>
+</html>
