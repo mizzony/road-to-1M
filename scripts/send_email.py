@@ -121,9 +121,16 @@ def main():
     to = os.environ["EMAIL_TO"].strip()
     html += ("<p style='font-family:Arial,sans-serif;font-size:14px'>📎 Open <b>dashboard.html</b> "
              "(attached) in your browser to see the full dashboard with your real numbers.</p>")
+    # Plain-text version: short summary + the data, so Claude can read it from Gmail
+    text = (f"{subject}\n{d['progress_pct']}% of next goal {d['goal_name']}, {aud(d['gap_aud'])} to go.\n"
+            "Open dashboard.html (attached) for the full dashboard.\n\n"
+            "PORTFOLIO_DATA_JSON_START\n" + json.dumps(d, separators=(",", ":")) + "\nPORTFOLIO_DATA_JSON_END\n")
+    body = MIMEMultipart("alternative")
+    body.attach(MIMEText(text, "plain"))
+    body.attach(MIMEText(html, "html"))
     msg = MIMEMultipart("mixed")
     msg["Subject"], msg["From"], msg["To"] = subject, user, to
-    msg.attach(MIMEText(html, "html"))
+    msg.attach(body)
     att = MIMEApplication(build_dashboard().encode(), _subtype="html")
     att.add_header("Content-Disposition", "attachment", filename="dashboard.html")
     msg.attach(att)

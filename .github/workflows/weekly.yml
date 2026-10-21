@@ -60,7 +60,9 @@ jobs:
           python-version: "3.12"
       - run: pip install -r requirements.txt
       - name: Build public demo site
-        run: python scripts/update.py --demo
+        run: |
+          python scripts/update.py --demo
+          python scripts/static_render.py
       - uses: actions/upload-pages-artifact@v4
         with:
           path: site

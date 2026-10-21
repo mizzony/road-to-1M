@@ -114,7 +114,7 @@ def render(page, d):
         f'<span>{("Hits " + active["name"] + " in " + s["goal_reached"]) if s["goal_reached"] else "Not within 10 years"}</span></div>'
         for s in active["forecast"]["scenarios"]))
     # Shown only when JavaScript can't run (canvas fallback content)
-    page = fill(page, "chart", chart_svg(d, active))
+    page = fill(page, "chartFallback", chart_svg(d, active))
 
     verb = {"up": "Upgrade", "down": "Downgrade", "main": "Kept", "init": "New", "reit": "Kept"}
     if d["rating_changes"]:
@@ -158,3 +158,14 @@ def render(page, d):
     if d["mode"] == "demo":
         page = page.replace('id="mode" class="badge" hidden', 'id="mode" class="badge"')
     return page
+
+
+if __name__ == "__main__":
+    # Pre-fill the public site (site/index.html) from site/data.json
+    import json
+    from pathlib import Path
+    root = Path(__file__).resolve().parent.parent
+    data = json.loads((root / "site" / "data.json").read_text())
+    page_path = root / "site" / "index.html"
+    page_path.write_text(render(page_path.read_text(), data))
+    print("Pre-filled site/index.html")
