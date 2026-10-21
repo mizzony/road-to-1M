@@ -101,6 +101,10 @@ def fetch_live(holdings):
     week_ago = close.loc[:(date.today() - timedelta(days=7)).isoformat()]
     wk = week_ago.iloc[-1] if len(week_ago) else close.iloc[0]
     prev_prices = {t: float(wk[t]) if wk[t] == wk[t] else prices[t] for t in tickers}
+    prev_fx = {"AUD": 1.0}
+    prev_fx.update({c: float(wk[f"{c}AUD=X"]) if wk[f"{c}AUD=X"] == wk[f"{c}AUD=X"] else fx[c] for c in currencies})
+    # Value of today's holdings exactly 7 days ago (prices and exchange rates from that day)
+    value_week_ago = sum(h["quantity"] * prev_prices[h["ticker"]] * prev_fx[h["currency"]] for h in holdings)
 
     recent = close.loc[(date.today() - timedelta(days=183)).isoformat():]
     # Shares listed recently (e.g. SpaceX) have no earlier prices: use their first price
@@ -113,7 +117,7 @@ def fetch_live(holdings):
             total += h["quantity"] * float(row[h["ticker"]]) * rate
         if idx.date() <= date.today():  # skip the unfinished current week (its label is a future Friday)
             history.append({"date": idx.date().isoformat(), "total_aud": round(total)})
-    return prices, fx, history, prev_prices
+    return prices, fx, history, prev_prices, value_week_ago
 
 
 def fetch_rating_changes(holdings, days):
@@ -307,7 +311,7 @@ def main():
         profiles = DEMO_PROFILES
     else:
         holdings = load_holdings(args.holdings)
-        prices, fx, live_history, prev_prices = fetch_live(holdings)
+        prices, fx, live_history, prev_prices, value_week_ago = fetch_live(holdings)
         profiles = fetch_profiles(holdings)
 
     rows, total, cost = [], 0.0, 0.0
@@ -393,8 +397,11 @@ def main():
         c["key_firm"] = any(k in c["firm"].lower() for k in key)
     changes.sort(key=lambda c: c["date"], reverse=True)
 
-    week_ago = [h for h in history if h["date"] <= (today - timedelta(days=6)).isoformat()]
-    week_change = round(total - week_ago[-1]["total_aud"]) if week_ago else None
+    if args.demo:
+        week_ago = [h for h in history if h["date"] <= (today - timedelta(days=6)).isoformat()]
+        week_change = round(total - week_ago[-1]["total_aud"]) if week_ago else None
+    else:
+        week_change = round(total - value_week_ago)
 
     goals = []
     for g in CONFIG["goals"]:

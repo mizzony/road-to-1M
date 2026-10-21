@@ -103,7 +103,7 @@ def build_html():
   <div style="background:#DCE2DF;border-radius:6px;height:10px"><div style="background:#2D6B5E;border-radius:6px;height:10px;width:{d['progress_pct']}%"></div></div>
   <p style="margin:6px 0 16px;color:{muted}">{d['progress_pct']}% of next goal {d['goal_name']} · {aud(d['gap_aud'])} to go · {f['months_left']} months left</p>
   <table style="border-collapse:collapse">
-    <tr><td style="padding:3px 16px 3px 0">This week</td><td>{wk_html}</td></tr>
+    <tr><td style="padding:3px 16px 3px 0">Last 7 days</td><td>{wk_html}</td></tr>
     <tr><td style="padding:3px 16px 3px 0">Total gain</td><td>{signed(d['gain_aud'])} ({d['gain_pct']}%)</td></tr>
     <tr><td style="padding:3px 16px 3px 0">Needed per month</td><td>{aud(f['required_monthly'])} to hit the goal on time</td></tr>
     <tr><td style="padding:3px 16px 3px 0">Best performers</td><td>{top}</td></tr>
