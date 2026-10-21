@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Road to 100K</title>
+<title>Road to 1M</title>
 <meta name="claude:viewport-fit-sides" content="cover">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
@@ -73,6 +73,24 @@ header h1 { font-size: 1.5rem; }
 @media (max-width: 640px) { .stats { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 
 section { display: grid; gap: 12px; }
+.goals { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.goal-card { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 14px 16px; display: grid; gap: 8px; }
+.goal-card.active { border-color: var(--gold); }
+.goal-card .top { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+.goal-card strong { font-family: var(--f-display); font-size: 1.2rem; }
+.goal-card .mini { height: 8px; background: var(--line); border-radius: 4px; overflow: hidden; }
+.goal-card .mini span { display: block; height: 100%; background: var(--teal); }
+.goal-card .row { display: flex; justify-content: space-between; gap: 8px; font-size: .85rem; color: var(--muted); }
+.status { font-size: .7rem; font-weight: 600; text-transform: uppercase; letter-spacing: .05em; padding: 2px 8px; border-radius: 999px; white-space: nowrap; }
+.status.ok { color: var(--up); background: color-mix(in srgb, var(--up) 15%, transparent); }
+.status.behind { color: var(--down); background: color-mix(in srgb, var(--down) 15%, transparent); }
+.status.done { color: var(--gold); background: var(--gold-soft); }
+@media (max-width: 560px) { .goals { grid-template-columns: 1fr; } }
+.tabs { display: flex; gap: 6px; }
+.tabs button { font: 600 .85rem var(--f-body); color: var(--muted); background: transparent; border: 1px solid var(--line); border-radius: 999px; padding: 5px 14px; cursor: pointer; }
+.tabs button[aria-pressed="true"] { color: var(--ink); background: var(--surface); border-color: var(--ink); }
+.tabs button:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
+.head-row { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 10px; }
 .panel { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 16px; }
 .chart-box { position: relative; height: 300px; }
 .scen { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
@@ -113,13 +131,13 @@ footer { font-size: .8rem; color: var(--muted); display: grid; gap: 4px; }
 <body>
 <main class="wrap">
   <header>
-    <h1>Road to 100K</h1>
+    <h1>Road to 1M</h1>
     <div class="meta"><span id="mode" class="badge" hidden>Demo data</span><span id="updated"></span></div>
   </header>
 
   <section class="goal" aria-label="Goal progress">
     <div>
-      <div class="label">Total portfolio</div>
+      <div class="label">Total portfolio · next goal <span id="goalName"></span></div>
       <div class="total"><span id="total"></span><small>AUD</small></div>
     </div>
     <div>
@@ -135,7 +153,15 @@ footer { font-size: .8rem; color: var(--muted); display: grid; gap: 4px; }
   </section>
 
   <section>
-    <h2>Forecast to <span id="targetLabel"></span></h2>
+    <h2>Goals</h2>
+    <div class="goals" id="goals"></div>
+  </section>
+
+  <section>
+    <div class="head-row">
+      <h2>Forecast to <span id="targetLabel"></span></h2>
+      <div class="tabs" id="tabs" role="group" aria-label="Choose goal"></div>
+    </div>
     <div class="panel">
       <div class="chart-box"><canvas id="chart" aria-label="Portfolio value history and forecast"></canvas></div>
     </div>
@@ -180,15 +206,18 @@ footer { font-size: .8rem; color: var(--muted); display: grid; gap: 4px; }
   const aud = (n) => "$" + Math.round(n).toLocaleString("en-AU");
   const signed = (n) => (n > 0 ? "+" : n < 0 ? "−" : "") + aud(Math.abs(n));
   const css = (v) => getComputedStyle(document.documentElement).getPropertyValue(v).trim();
-  const target = new Date(d.target_date + "T00:00:00");
-  const targetText = target.toLocaleDateString("en-AU", { month: "long", year: "numeric" });
+  const goals = d.goals || [{ name: "Goal", amount: d.goal_aud, date: d.target_date, progress_pct: d.progress_pct, gap_aud: d.gap_aud, forecast: d.forecast }];
+  let G = goals.find((g) => g.name === d.goal_name) || goals[0];
+  let target = new Date(G.date + "T00:00:00");
+  const monthYear = (dt, m) => dt.toLocaleDateString("en-AU", { month: m || "long", year: "numeric" });
 
   $("mode").hidden = d.mode !== "demo";
   $("updated").textContent = "Updated " + d.generated_at;
   $("total").textContent = aud(d.total_aud);
   $("barFill").style.width = d.progress_pct + "%";
   $("bar").setAttribute("aria-valuenow", d.progress_pct);
-  $("pct").textContent = d.progress_pct + "% of goal";
+  $("goalName").textContent = d.goal_name || "";
+  $("pct").textContent = d.progress_pct + "% of " + (d.goal_name || "goal");
   $("goalLabel").textContent = aud(d.goal_aud);
   $("gap").textContent = aud(d.gap_aud);
   const w = $("week");
@@ -197,17 +226,33 @@ footer { font-size: .8rem; color: var(--muted); display: grid; gap: 4px; }
   $("gain").textContent = signed(d.gain_aud) + (d.gain_pct != null ? " (" + d.gain_pct + "%)" : "");
   $("gain").className = d.gain_aud >= 0 ? "up" : "down";
   $("needed").textContent = aud(d.forecast.required_monthly);
-  $("targetLabel").textContent = targetText;
+
+  // Goal cards
+  $("goals").innerHTML = goals.map((g) => {
+    const normal = g.forecast.scenarios.find((x) => x.name === "Normal") || g.forecast.scenarios[0];
+    const onTrack = !!normal.goal_reached_month && normal.goal_reached_month <= g.date.slice(0, 7);
+    const st = g.reached ? ["done", "Reached"] : onTrack ? ["ok", "On track"] : ["behind", "Behind"];
+    return `<div class="goal-card${g.name === d.goal_name ? " active" : ""}">
+      <div class="top"><strong>${g.name}</strong><span class="status ${st[0]}">${st[1]}</span></div>
+      <div class="mini"><span style="width:${g.progress_pct}%"></span></div>
+      <div class="row"><span class="num">${g.progress_pct}% · ${aud(g.gap_aud)} to go</span><span>by ${monthYear(new Date(g.date + "T00:00:00"), "short")}</span></div>
+      <div class="row"><span>Needed per month</span><span class="num">${aud(g.forecast.required_monthly)}</span></div>
+    </div>`;
+  }).join("");
 
   // Scenarios
   const scColors = { Slow: "--muted", Normal: "--teal", Strong: "--gold" };
-  $("scen").innerHTML = d.forecast.scenarios.map((s) => `
+  function drawScenarios() {
+  $("targetLabel").textContent = G.name + " · " + monthYear(target);
+  $("scen").innerHTML = G.forecast.scenarios.map((s) => `
     <div style="--sc: var(${scColors[s.name] || "--teal"})">
       <strong>${s.name}</strong>
       <span>${aud(s.monthly)}/mo · ${(s.annual_return * 100).toFixed(0)}% a year</span>
-      <span class="num">${aud(s.value_at_target)} by ${target.toLocaleDateString("en-AU", { month: "short", year: "numeric" })}</span>
-      <span>${s.goal_reached ? "Hits 100K in " + s.goal_reached : "Not within 5 years"}</span>
+      <span class="num">${aud(s.value_at_target)} by ${monthYear(target, "short")}</span>
+      <span>${s.goal_reached ? "Hits " + G.name + " in " + s.goal_reached : "Not within 10 years"}</span>
     </div>`).join("");
+  }
+  drawScenarios();
 
   // Chart
   function drawChart() {
@@ -219,7 +264,7 @@ footer { font-size: .8rem; color: var(--muted); display: grid; gap: 4px; }
       pointRadius: 0, tension: 0.25, fill: { target: "origin" },
       backgroundColor: css("--line"),
     }];
-    d.forecast.scenarios.forEach((s) => {
+    G.forecast.scenarios.forEach((s) => {
       ds.push({
         label: s.name, borderColor: css(scColors[s.name] || "--teal"), borderWidth: 2,
         borderDash: [5, 4], pointRadius: 0, tension: 0.2,
@@ -229,7 +274,7 @@ footer { font-size: .8rem; color: var(--muted); display: grid; gap: 4px; }
     const allDates = ds.flatMap((x) => x.data.map((p) => p.x));
     ds.push({
       label: "Goal", borderColor: css("--gold"), borderWidth: 1, pointRadius: 0,
-      data: [{ x: allDates[0], y: d.goal_aud }, { x: d.target_date, y: d.goal_aud }],
+      data: [{ x: allDates[0], y: G.amount }, { x: G.date, y: G.amount }],
     });
     if (window._chart) window._chart.destroy();
     window._chart = new Chart($("chart"), {
@@ -244,8 +289,8 @@ footer { font-size: .8rem; color: var(--muted); display: grid; gap: 4px; }
                ticks: { color: css("--muted"), maxTicksLimit: 7, maxRotation: 0,
                         callback(v) { const s = this.getLabelForValue(v); return new Date(s).toLocaleDateString("en-AU", { month: "short", year: "2-digit" }); } },
                grid: { display: false } },
-          y: { ticks: { color: css("--muted"), callback: (v) => "$" + v / 1000 + "k" },
-               grid: { color: css("--line") }, suggestedMax: d.goal_aud * 1.1 },
+          y: { ticks: { color: css("--muted"), callback: (v) => v >= 1e6 ? "$" + v / 1e6 + "M" : "$" + v / 1000 + "k" },
+               grid: { color: css("--line") }, suggestedMax: G.amount * 1.1 },
         },
         plugins: {
           legend: { labels: { color: css("--ink"), boxWidth: 14, boxHeight: 2 } },
@@ -255,6 +300,17 @@ footer { font-size: .8rem; color: var(--muted); display: grid; gap: 4px; }
     });
   }
   drawChart();
+
+  // Tabs to switch the forecast between goals
+  $("tabs").innerHTML = goals.map((g) =>
+    `<button type="button" id="tab-${g.name}" aria-pressed="${g === G}">${g.name}</button>`).join("");
+  $("tabs").addEventListener("click", (e) => {
+    const b = e.target.closest("button"); if (!b) return;
+    G = goals.find((g) => "tab-" + g.name === b.id);
+    target = new Date(G.date + "T00:00:00");
+    $("tabs").querySelectorAll("button").forEach((x) => x.setAttribute("aria-pressed", x === b));
+    drawScenarios(); drawChart();
+  });
   matchMedia("(prefers-color-scheme: dark)").addEventListener?.("change", drawChart);
   new MutationObserver(drawChart).observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
 

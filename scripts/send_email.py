@@ -35,12 +35,17 @@ def build_html():
     wk_html = "–" if wk is None else f'<span style="color:{green if wk >= 0 else red}">{signed(wk)}</span>'
     f = d["forecast"]
 
-    scen = "".join(
-        f"<tr><td style='padding:4px 12px 4px 0'>{s['name']}</td>"
-        f"<td style='padding:4px 12px 4px 0'>{aud(s['monthly'])}/mo, {s['annual_return']*100:.0f}%/yr</td>"
-        f"<td style='padding:4px 12px 4px 0'>{aud(s['value_at_target'])}</td>"
-        f"<td style='padding:4px 0'>{('Hits 100K ' + s['goal_reached']) if s['goal_reached'] else 'Later'}</td></tr>"
-        for s in f["scenarios"])
+    goal_rows = ""
+    for g in d.get("goals", []):
+        n = next((x for x in g["forecast"]["scenarios"] if x["name"] == "Normal"), g["forecast"]["scenarios"][0])
+        on_track = n.get("goal_reached_month") and n["goal_reached_month"] <= g["date"][:7]
+        status = ("<span style='color:#A9771F'>Reached</span>" if g["reached"] else
+                  f"<span style='color:{green}'>On track</span>" if on_track else
+                  f"<span style='color:{red}'>Behind</span>")
+        goal_rows += (f"<tr><td style='padding:4px 12px 4px 0'><b>{g['name']}</b> by {g['date'][:7]}</td>"
+                      f"<td style='padding:4px 12px 4px 0'>{g['progress_pct']}%</td>"
+                      f"<td style='padding:4px 12px 4px 0'>{aud(g['forecast']['required_monthly'])}/mo needed</td>"
+                      f"<td style='padding:4px 0'>{status}</td></tr>")
 
     key_changes = [c for c in d["rating_changes"] if c["key_firm"] or c["action"] in ("up", "down")]
     if key_changes:
@@ -64,10 +69,10 @@ def build_html():
     return f"""\
 <div style="font-family:Segoe UI,Arial,sans-serif;font-size:15px;color:#15211D;max-width:560px">
   {demo}
-  <p style="margin:0;color:{muted};font-size:12px;text-transform:uppercase;letter-spacing:1px">Road to 100K · {d['generated_at']}</p>
+  <p style="margin:0;color:{muted};font-size:12px;text-transform:uppercase;letter-spacing:1px">Road to 1M · {d['generated_at']}</p>
   <p style="font-size:34px;font-weight:700;margin:4px 0">{aud(d['total_aud'])} <span style="font-size:14px;color:{muted}">AUD</span></p>
   <div style="background:#DCE2DF;border-radius:6px;height:10px"><div style="background:#2D6B5E;border-radius:6px;height:10px;width:{d['progress_pct']}%"></div></div>
-  <p style="margin:6px 0 16px;color:{muted}">{d['progress_pct']}% of {aud(d['goal_aud'])} · {aud(d['gap_aud'])} to go · {f['months_left']} months left</p>
+  <p style="margin:6px 0 16px;color:{muted}">{d['progress_pct']}% of next goal {d['goal_name']} · {aud(d['gap_aud'])} to go · {f['months_left']} months left</p>
   <table style="border-collapse:collapse">
     <tr><td style="padding:3px 16px 3px 0">This week</td><td>{wk_html}</td></tr>
     <tr><td style="padding:3px 16px 3px 0">Total gain</td><td>{signed(d['gain_aud'])} ({d['gain_pct']}%)</td></tr>
@@ -76,8 +81,8 @@ def build_html():
   </table>
   <h3 style="margin:20px 0 4px">Analyst changes</h3>
   {changes}
-  <h3 style="margin:20px 0 4px">Forecast</h3>
-  <table style="border-collapse:collapse;font-size:14px">{scen}</table>
+  <h3 style="margin:20px 0 4px">Goals</h3>
+  <table style="border-collapse:collapse;font-size:14px">{goal_rows}</table>
   {link}
   <p style="color:{muted};font-size:12px;margin-top:24px">Analyst ratings are for information only, not advice.</p>
 </div>"""
@@ -88,7 +93,7 @@ def main():
     ap.add_argument("--preview", action="store_true")
     args = ap.parse_args()
     html = build_html()
-    subject = f"Road to 100K: {aud(d['total_aud'])} ({d['progress_pct']}%)"
+    subject = f"Road to 1M: {aud(d['total_aud'])} ({d['progress_pct']}% of {d['goal_name']})"
     if args.preview:
         (ROOT / "email_preview.html").write_text(html)
         print("Wrote email_preview.html —", subject)

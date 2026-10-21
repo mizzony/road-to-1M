@@ -1,10 +1,10 @@
-# Road to 100K
+# Road to 1M
 
-A personal portfolio agent that tracks progress to a 1M goal by July 2030**.
+A personal portfolio agent that tracks progress to two goals: **$100K AUD by March 2027** and **$1M AUD by December 2030**.
 
 Every Monday it:
 1. Values all holdings (US shares, ETFs, Thai shares, gold) in **AUD** using live prices and exchange rates
-2. Forecasts when the goal will be reached under three scenarios (slow / normal / strong)
+2. Forecasts when each goal will be reached under three scenarios (slow / normal / strong)
 3. Finds **analyst rating changes** for US shares (JP Morgan, Goldman Sachs, Morgan Stanley and others)
 4. Sends a private **weekly email** with real numbers
 5. Rebuilds a **public demo dashboard** on GitHub Pages (fake data, so real money is never shown)

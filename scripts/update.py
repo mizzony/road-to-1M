@@ -2,7 +2,7 @@
 """Weekly portfolio update.
 
 Steps: load holdings -> get prices + FX -> value everything in AUD ->
-build history -> forecast the 100K goal -> find analyst rating changes ->
+build history -> forecast each goal -> find analyst rating changes ->
 write site/data.js (for the website) and site/data.json (for the email).
 
   python scripts/update.py --demo                      # fake data, no internet needed
@@ -173,21 +173,21 @@ def add_months(d, n):
     return date(d.year + m // 12, m % 12 + 1, 1)
 
 
-def forecast(current, today):
-    goal = CONFIG["goal_aud"]
-    target = date.fromisoformat(CONFIG["target_date"])
+def forecast(current, today, goal, target_date):
+    target = date.fromisoformat(target_date)
     months = max(1, (target.year - today.year) * 12 + target.month - today.month)
     scenarios = []
     for s in CONFIG["scenarios"]:
         r = (1 + s["annual_return"]) ** (1 / 12) - 1
-        v, path, hit = current, [], None
-        for m in range(1, 61):
+        v, path, hit, hit_month = current, [], None, None
+        for m in range(1, 121):
             v = v * (1 + r) + s["monthly"]
             if m <= months:
                 path.append({"month": add_months(today, m).strftime("%Y-%m"), "value": round(v)})
             if hit is None and v >= goal:
                 hit = add_months(today, m).strftime("%b %Y")
-        scenarios.append({**s, "value_at_target": path[-1]["value"], "goal_reached": hit,
+                hit_month = add_months(today, m).strftime("%Y-%m")
+        scenarios.append({**s, "value_at_target": path[-1]["value"], "goal_reached": hit, "goal_reached_month": hit_month,
                           "path": path})
 
     # Monthly deposit needed to hit the goal on the target date (Normal return)
@@ -255,22 +255,30 @@ def main():
     week_ago = [h for h in history if h["date"] <= (today - timedelta(days=6)).isoformat()]
     week_change = round(total - week_ago[-1]["total_aud"]) if week_ago else None
 
-    goal = CONFIG["goal_aud"]
+    goals = []
+    for g in CONFIG["goals"]:
+        goals.append({**g,
+                      "progress_pct": round(min(total / g["amount"] * 100, 100), 1),
+                      "gap_aud": max(0, round(g["amount"] - total)),
+                      "reached": total >= g["amount"],
+                      "forecast": forecast(total, today, g["amount"], g["date"])})
+    active = next((g for g in goals if not g["reached"]), goals[-1])
     data = {
         "generated_at": datetime.now().strftime("%d %b %Y %H:%M"),
         "mode": "demo" if args.demo else "live",
-        "goal_aud": goal, "target_date": CONFIG["target_date"],
+        "goals": goals,
+        # the next goal not yet reached (used for the headline)
+        "goal_name": active["name"], "goal_aud": active["amount"], "target_date": active["date"],
+        "progress_pct": active["progress_pct"], "gap_aud": active["gap_aud"],
+        "forecast": active["forecast"],
         "total_aud": round(total), "cost_aud": round(cost),
         "gain_aud": round(total - cost),
         "gain_pct": round((total - cost) / cost * 100, 1) if cost else None,
-        "progress_pct": round(min(total / goal * 100, 100), 1),
-        "gap_aud": max(0, round(goal - total)),
         "week_change_aud": week_change,
         "fx": fx, "holdings": rows,
         "allocation": [{"asset_class": k, "value_aud": v, "pct": round(v / total * 100, 1)}
                        for k, v in sorted(allocation.items(), key=lambda kv: -kv[1])],
         "history": history,
-        "forecast": forecast(total, today),
         "rating_changes": changes,
         "site_url": CONFIG.get("site_url", ""),
     }
@@ -278,7 +286,8 @@ def main():
     SITE.mkdir(exist_ok=True)
     (SITE / "data.json").write_text(json.dumps(data, indent=2))
     (SITE / "data.js").write_text("window.PORTFOLIO_DATA = " + json.dumps(data) + ";\n")
-    print(f"[{data['mode']}] Total ${total:,.0f} AUD — {data['progress_pct']}% of ${goal:,.0f}")
+    print(f"[{data['mode']}] Total ${total:,.0f} AUD — " +
+          ", ".join(f"{g['progress_pct']}% of {g['name']}" for g in goals))
 
 
 if __name__ == "__main__":
