@@ -1,6 +1,6 @@
 # Road to 100K
 
-A personal portfolio agent that tracks progress to a **$100,000 AUD goal by July 2027**.
+A personal portfolio agent that tracks progress to a 1M goal by July 2030**.
 
 Every Monday it:
 1. Values all holdings (US shares, ETFs, Thai shares, gold) in **AUD** using live prices and exchange rates
