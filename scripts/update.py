@@ -179,35 +179,86 @@ def fetch_profiles(holdings):
     return out
 
 
-def fetch_news(items, days=7, per_ticker=2):
-    """Latest headlines for the given (ticker, name) pairs. Handles old and new yfinance formats."""
+def _news_date(when):
+    try:
+        if isinstance(when, (int, float)):
+            return datetime.fromtimestamp(when, timezone.utc)
+        return datetime.fromisoformat(str(when).replace("Z", "+00:00"))
+    except Exception:
+        return None
+
+
+def yahoo_news(ticker):
+    """Headlines from Yahoo Finance (handles old and new yfinance formats)."""
     import yfinance as yf
-    since = datetime.now(timezone.utc) - timedelta(days=days)
     out = []
-    for t, name in items:
+    try:
+        raw = yf.Ticker(ticker).news or []
+    except Exception:
+        return out
+    for n in raw:
+        c = n.get("content", n) if isinstance(n, dict) else {}
+        title = c.get("title")
+        link = ((c.get("canonicalUrl") or {}).get("url") or (c.get("clickThroughUrl") or {}).get("url")
+                or c.get("link"))
+        publisher = (c.get("provider") or {}).get("displayName") or c.get("publisher", "")
+        dt = _news_date(c.get("pubDate") or c.get("displayTime") or c.get("providerPublishTime"))
+        if title and link and dt:
+            out.append({"title": title, "link": link, "publisher": publisher or "Yahoo Finance", "dt": dt})
+    return out
+
+
+def parse_google_news_rss(xml_text):
+    import xml.etree.ElementTree as ET
+    from email.utils import parsedate_to_datetime
+    out = []
+    for item in ET.fromstring(xml_text).iter("item"):
+        title = (item.findtext("title") or "").strip()
+        link = (item.findtext("link") or "").strip()
+        source = (item.findtext("source") or "").strip()
         try:
-            raw = yf.Ticker(t).news or []
+            dt = parsedate_to_datetime(item.findtext("pubDate"))
         except Exception:
             continue
-        got = 0
-        for n in raw:
-            c = n.get("content", n)
-            title = c.get("title")
-            link = (c.get("canonicalUrl") or {}).get("url") or (c.get("clickThroughUrl") or {}).get("url") or c.get("link")
-            publisher = (c.get("provider") or {}).get("displayName") or c.get("publisher", "")
-            when = c.get("pubDate") or c.get("providerPublishTime")
-            try:
-                dt = (datetime.fromtimestamp(when, timezone.utc) if isinstance(when, (int, float))
-                      else datetime.fromisoformat(str(when).replace("Z", "+00:00")))
-            except Exception:
-                continue
-            if not title or not link or dt < since:
-                continue
-            out.append({"ticker": t, "name": name, "title": title, "link": link,
-                        "publisher": publisher, "date": dt.date().isoformat()})
-            got += 1
-            if got >= per_ticker:
-                break
+        if source and title.endswith(" - " + source):
+            title = title[: -len(" - " + source)]
+        if title and link:
+            out.append({"title": title, "link": link, "publisher": source or "Google News", "dt": dt})
+    return out
+
+
+def google_news(query):
+    """Headlines from Google News RSS (no key needed)."""
+    import urllib.parse
+    import urllib.request
+    url = ("https://news.google.com/rss/search?q=" + urllib.parse.quote(query + " when:7d")
+           + "&hl=en-AU&gl=AU&ceid=AU:en")
+    try:
+        req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
+        with urllib.request.urlopen(req, timeout=15) as r:
+            return parse_google_news_rss(r.read())
+    except Exception as e:
+        print(f"::notice::Google News failed for {query}: {e}")
+        return []
+
+
+def fetch_news(items, days=7, per_ticker=2):
+    """Latest headlines for (ticker, name) pairs: Yahoo first, Google News if Yahoo has nothing."""
+    since = datetime.now(timezone.utc) - timedelta(days=days)
+    out, log = [], []
+    for t, name in items:
+        found = [n for n in yahoo_news(t) if n["dt"] >= since]
+        src = "yahoo"
+        if not found:
+            q = f'"{name}" stock' if not t.endswith(".BK") else f'"{name}" SET Thailand'
+            found = [n for n in google_news(q) if n["dt"] >= since]
+            src = "google"
+        found.sort(key=lambda n: n["dt"], reverse=True)
+        log.append(f"{t}:{len(found)}({src})")
+        for n in found[:per_ticker]:
+            out.append({"ticker": t, "name": name, "title": n["title"], "link": n["link"],
+                        "publisher": n["publisher"], "date": n["dt"].date().isoformat()})
+    print("::notice::News found - " + ", ".join(log))
     out.sort(key=lambda n: n["date"], reverse=True)
     return out
 
