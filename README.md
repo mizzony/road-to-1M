@@ -33,12 +33,17 @@ cd site && python -m http.server 8000                 # open http://localhost:80
 ## Holdings file format
 
 ```csv
-ticker,name,asset_class,quantity,cost_per_unit,currency
-AAPL,Apple,US share,40,170,USD
-VGE.AX,Vanguard Emerging Markets ETF,ETF,150,72,AUD
-PTT.BK,PTT,Thai share,3000,34,THB
-GC=F,Gold (troy oz),Gold,2,2300,USD
+account,ticker,name,asset_class,quantity,cost_per_unit,currency,total_cost,snapshot_value,snapshot_date
+IG,NVDA,Nvidia,US share,22,151.81,USD,,,
+Dime,TSM,TSMC ADR,US share,,,USD,647.00,664.90,2026-10-21
+Thai broker,SCB.BK,SCB X,Thai share,100,137.62,THB,,,
+Physical,GC=F,Physical gold,Gold,,,USD,13000,13000,2026-10-21
 ```
+
+- Know the share count? Fill `quantity` and `cost_per_unit`.
+- Fractional shares (only a value shown) or physical gold? Leave `quantity` blank and fill `snapshot_value` + `snapshot_date`. The script works out the quantity from that day's price.
+- `total_cost` (optional) overrides quantity × cost per unit.
+- Unknown tickers are skipped with a warning in the Actions log.
 
 Tickers use Yahoo Finance codes: `.AX` = ASX, `.BK` = Thai SET, `GC=F` = gold per troy ounce (USD).
 

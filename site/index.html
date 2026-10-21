@@ -281,7 +281,7 @@ footer { font-size: .8rem; color: var(--muted); display: grid; gap: 4px; }
   // Holdings
   $("rows").innerHTML = d.holdings.map((h) => `
     <tr>
-      <td><strong>${h.name}</strong><span class="sub num">${h.ticker}</span></td>
+      <td><strong>${h.name}</strong><span class="sub num">${h.ticker}${h.account ? " · " + h.account : ""}</span></td>
       <td>${h.asset_class}</td>
       <td class="r num">${h.price.toLocaleString("en-AU")} <span class="sub">${h.currency}</span></td>
       <td class="r num">${aud(h.value_aud)}</td>

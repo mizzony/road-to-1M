@@ -25,38 +25,82 @@ DEMO_FX = {"AUD": 1.0, "USD": 1.52, "THB": 0.045}
 
 
 # ---------- input ----------
+def _num(v):
+    v = (v or "").strip().replace(",", "")
+    return float(v) if v else None
+
+
 def load_holdings(path):
+    """Columns: account,ticker,name,asset_class,quantity,cost_per_unit,currency,
+    total_cost,snapshot_value,snapshot_date.
+    - Give quantity + cost_per_unit when you know them.
+    - For fractional shares (e.g. Dime) or physical gold, leave quantity blank and give
+      snapshot_value + snapshot_date (value in the holding's currency on that day);
+      quantity is then worked out from that day's price.
+    - total_cost (holding currency) overrides quantity * cost_per_unit."""
     with open(path, newline="") as f:
-        rows = [r for r in csv.DictReader(f) if r.get("ticker")]
+        rows = [r for r in csv.DictReader(f) if (r.get("ticker") or "").strip()]
     for r in rows:
-        r["quantity"] = float(r["quantity"])
-        r["cost_per_unit"] = float(r.get("cost_per_unit") or 0)
+        r["ticker"] = r["ticker"].strip()
+        r["account"] = (r.get("account") or "").strip()
+        r["quantity"] = _num(r.get("quantity"))
+        r["cost_per_unit"] = _num(r.get("cost_per_unit")) or 0.0
+        r["total_cost"] = _num(r.get("total_cost"))
+        r["snapshot_value"] = _num(r.get("snapshot_value"))
+        r["snapshot_date"] = (r.get("snapshot_date") or "").strip()
         r["currency"] = r["currency"].strip().upper()
+        if r["quantity"] is None and not (r["snapshot_value"] and r["snapshot_date"]):
+            raise SystemExit(f"{r['ticker']}: give either quantity, or snapshot_value + snapshot_date")
     return rows
+
+
+def cost_of(h):
+    """Total cost in the holding's currency."""
+    if h["total_cost"] is not None:
+        return h["total_cost"]
+    return (h["quantity"] or 0) * h["cost_per_unit"]
 
 
 # ---------- live data (Yahoo Finance via yfinance) ----------
 def fetch_live(holdings):
     """Latest prices + FX, plus a weekly history of what your CURRENT holdings
-    were worth over the last 6 months (so no private history file is needed)."""
+    were worth over the last 6 months (so no private history file is needed).
+    Holdings with an unknown ticker are skipped with a warning."""
     import yfinance as yf
 
     tickers = sorted({h["ticker"] for h in holdings})
     currencies = sorted({h["currency"] for h in holdings if h["currency"] != "AUD"})
     fx_tickers = [f"{c}AUD=X" for c in currencies]
-    close = yf.download(tickers + fx_tickers, period="6mo", progress=False,
-                        auto_adjust=False)["Close"].ffill().bfill()
+    snap_dates = [h["snapshot_date"] for h in holdings if h["snapshot_date"]]
+    start = min([(date.today() - timedelta(days=183)).isoformat()] + snap_dates)
+    start = (date.fromisoformat(start) - timedelta(days=7)).isoformat()
+    close = yf.download(tickers + fx_tickers, start=start, progress=False,
+                        auto_adjust=False)["Close"].ffill()
     if close.empty:
-        raise SystemExit("Could not download prices from Yahoo Finance (no internet, or a ticker is wrong).")
-    missing = [t for t in tickers + fx_tickers if t not in close.columns or close[t].isna().all()]
+        raise SystemExit("Could not download prices from Yahoo Finance (no internet?).")
+    bad_fx = [t for t in fx_tickers if t not in close.columns or close[t].isna().all()]
+    if bad_fx:
+        raise SystemExit(f"No exchange rate for: {', '.join(bad_fx)}")
+    missing = [t for t in tickers if t not in close.columns or close[t].isna().all()]
     if missing:
-        raise SystemExit(f"No prices for: {', '.join(missing)}. Check these tickers on finance.yahoo.com.")
+        print(f"WARNING: no prices for {', '.join(missing)} - skipped. Check tickers on finance.yahoo.com")
+    holdings[:] = [h for h in holdings if h["ticker"] not in missing]
+    tickers = [t for t in tickers if t not in missing]
+
+    # Work out quantity for snapshot rows (fractional shares, physical gold)
+    for h in holdings:
+        if h["quantity"] is None:
+            series = close[h["ticker"]].loc[:h["snapshot_date"]].dropna()
+            price_then = float(series.iloc[-1]) if len(series) else float(close[h["ticker"]].dropna().iloc[0])
+            h["quantity"] = h["snapshot_value"] / price_then
+
     last = close.iloc[-1]
     prices = {t: float(last[t]) for t in tickers}
     fx = {"AUD": 1.0}
     fx.update({c: float(last[f"{c}AUD=X"]) for c in currencies})
 
-    weekly = close.resample("W-FRI").last().dropna(how="all")
+    recent = close.loc[(date.today() - timedelta(days=183)).isoformat():]
+    weekly = recent.resample("W-FRI").last().dropna(how="all")
     history = []
     for idx, row in weekly.iterrows():
         total = 0.0
@@ -72,10 +116,11 @@ def fetch_rating_changes(holdings, days):
     import yfinance as yf
 
     since = datetime.now(timezone.utc) - timedelta(days=days)
-    out = []
+    out, seen = [], set()
     for h in holdings:
-        if h["asset_class"].lower() != "us share":
+        if h["asset_class"].lower() != "us share" or h["ticker"] in seen:
             continue
+        seen.add(h["ticker"])
         try:
             df = yf.Ticker(h["ticker"]).upgrades_downgrades
         except Exception:
@@ -176,11 +221,12 @@ def main():
     for h in holdings:
         rate = fx[h["currency"]]
         value = h["quantity"] * prices[h["ticker"]] * rate
-        c = h["quantity"] * h["cost_per_unit"] * rate  # cost at today's FX (simple)
+        c = cost_of(h) * rate  # cost at today's FX (simple)
         total += value
         cost += c
         rows.append({"ticker": h["ticker"], "name": h["name"], "asset_class": h["asset_class"],
-                     "quantity": h["quantity"], "price": round(prices[h["ticker"]], 2),
+                     "account": h.get("account", ""),
+                     "quantity": round(h["quantity"], 4), "price": round(prices[h["ticker"]], 2),
                      "currency": h["currency"], "value_aud": round(value),
                      "gain_aud": round(value - c),
                      "gain_pct": round((value - c) / c * 100, 1) if c else None})
