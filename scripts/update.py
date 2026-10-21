@@ -50,7 +50,7 @@ def load_holdings(path):
         r["snapshot_date"] = (r.get("snapshot_date") or "").strip()
         r["currency"] = r["currency"].strip().upper()
         if r["quantity"] is None and not (r["snapshot_value"] and r["snapshot_date"]):
-            raise SystemExit(f"{r['ticker']}: give either quantity, or snapshot_value + snapshot_date")
+            raise SystemExit(f"::error::{r['ticker']}: give either quantity, or snapshot_value + snapshot_date")
     return rows
 
 
@@ -77,13 +77,13 @@ def fetch_live(holdings):
     close = yf.download(tickers + fx_tickers, start=start, progress=False,
                         auto_adjust=False)["Close"].ffill()
     if close.empty:
-        raise SystemExit("Could not download prices from Yahoo Finance (no internet?).")
+        raise SystemExit("::error::Could not download prices from Yahoo Finance (no internet?).")
     bad_fx = [t for t in fx_tickers if t not in close.columns or close[t].isna().all()]
     if bad_fx:
-        raise SystemExit(f"No exchange rate for: {', '.join(bad_fx)}")
+        raise SystemExit(f"::error::No exchange rate for: {', '.join(bad_fx)}")
     missing = [t for t in tickers if t not in close.columns or close[t].isna().all()]
     if missing:
-        print(f"WARNING: no prices for {', '.join(missing)} - skipped. Check tickers on finance.yahoo.com")
+        print(f"::warning::No prices for {', '.join(missing)} - skipped. Check these tickers on finance.yahoo.com")
     holdings[:] = [h for h in holdings if h["ticker"] not in missing]
     tickers = [t for t in tickers if t not in missing]
 
@@ -100,7 +100,8 @@ def fetch_live(holdings):
     fx.update({c: float(last[f"{c}AUD=X"]) for c in currencies})
 
     recent = close.loc[(date.today() - timedelta(days=183)).isoformat():]
-    weekly = recent.resample("W-FRI").last().dropna(how="all")
+    # Shares listed recently (e.g. SpaceX) have no earlier prices: use their first price
+    weekly = recent.resample("W-FRI").last().dropna(how="all").ffill().bfill()
     history = []
     for idx, row in weekly.iterrows():
         total = 0.0
@@ -291,4 +292,12 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    try:
+        main()
+    except SystemExit:
+        raise
+    except Exception as e:  # show the error as a clear message in GitHub Actions
+        import traceback
+        traceback.print_exc()
+        print(f"::error title=update.py failed::{type(e).__name__}: {e}")
+        raise SystemExit(1)
