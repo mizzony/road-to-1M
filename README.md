@@ -11,12 +11,22 @@ Every Monday it:
 
 **Stack:** Python · yfinance · Chart.js · GitHub Actions · GitHub Pages
 
+## Updating holdings (locked file)
+
+Real holdings live in `holdings.csv.age`, a locked (encrypted) file. It is safe in a public repo:
+it can only be unlocked with the `HOLDINGS_KEY` secret.
+
+```bash
+python scripts/lock_holdings.py my-holdings.csv   # writes holdings.csv.age (uses the public key in holdings.pub)
+git add holdings.csv.age && git commit -m "Update holdings" && git push
+```
+
 ## Privacy design
 
 | What | Data | Where |
 |---|---|---|
 | Public website | Demo data (`holdings.example.csv`) | GitHub Pages |
-| Weekly email | Your real holdings | Stored only as a GitHub **secret** |
+| Weekly email | Your real holdings | Locked file `holdings.csv.age`, unlocked only with the `HOLDINGS_KEY` secret |
 
 Real holdings are never committed. `holdings.csv` is in `.gitignore`.
 

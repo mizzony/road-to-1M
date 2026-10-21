@@ -28,16 +28,23 @@ jobs:
 
       - name: "Step A: build report from your real holdings"
         env:
+          HOLDINGS_KEY: ${{ secrets.HOLDINGS_KEY }}
           HOLDINGS_CSV: ${{ secrets.HOLDINGS_CSV }}
         run: |
-          if [ -z "$HOLDINGS_CSV" ]; then
-            echo "::warning::HOLDINGS_CSV secret is empty - using demo data"
-            python scripts/update.py --demo
-          else
+          if [ -n "$HOLDINGS_KEY" ] && [ -f holdings.csv.age ]; then
+            echo "Using the locked holdings file (holdings.csv.age)"
+            python scripts/unlock_holdings.py
+          elif [ -n "$HOLDINGS_CSV" ]; then
+            echo "::warning::Using the HOLDINGS_CSV secret (old method). Add HOLDINGS_KEY to use the locked file."
             printf '%s\n' "$HOLDINGS_CSV" > holdings.csv
+          fi
+          if [ -f holdings.csv ]; then
             echo "Holdings rows: $(($(wc -l < holdings.csv) - 1))"
             python scripts/update.py --holdings holdings.csv
             rm holdings.csv
+          else
+            echo "::warning::No holdings found - using demo data"
+            python scripts/update.py --demo
           fi
 
       - name: "Step B: send the email"
