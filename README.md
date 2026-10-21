@@ -1,6 +1,6 @@
 # Road to 1M
 
-A personal portfolio agent that tracks progress to two goals: **$100K AUD by March 2027** and **$1M AUD by December 2030**.
+A personal portfolio agent that tracks progress to three goals: **$100K AUD by March 2027**, **$500K by December 2031** (stretch: 2029) and **$1M by December 2035** (stretch: 2033).
 
 Every Monday it:
 1. Values all holdings (US shares, ETFs, Thai shares, gold) in **AUD** using live prices and exchange rates

@@ -43,7 +43,7 @@ def build_html():
     goal_rows = ""
     for g in d.get("goals", []):
         n = next((x for x in g["forecast"]["scenarios"] if x["name"] == "Normal"), g["forecast"]["scenarios"][0])
-        on_track = n.get("goal_reached_month") and n["goal_reached_month"] <= g["date"][:7]
+        on_track = g.get("on_track", n.get("goal_reached_month") and n["goal_reached_month"] <= g["date"][:7])
         status = ("<span style='color:#A9771F'>Reached</span>" if g["reached"] else
                   f"<span style='color:{green}'>On track</span>" if on_track else
                   f"<span style='color:{red}'>Behind</span>")
@@ -51,6 +51,12 @@ def build_html():
                       f"<td style='padding:4px 12px 4px 0'>{g['progress_pct']}%</td>"
                       f"<td style='padding:4px 12px 4px 0'>{aud(g['forecast']['required_monthly'])}/mo needed</td>"
                       f"<td style='padding:4px 0'>{status}</td></tr>")
+        sx = g.get("stretch")
+        if sx and not g["reached"]:
+            goal_rows += (f"<tr><td style='padding:0 12px 6px 12px;color:{muted}'>Stretch: by {sx['date'][:7]}</td><td></td>"
+                          f"<td style='padding:0 12px 6px 0;color:{muted}'>{aud(sx['required_monthly'])}/mo needed</td>"
+                          f"<td style='padding:0 0 6px;color:{green if sx['on_track'] else red}'>"
+                          f"{'On track' if sx['on_track'] else 'Behind'}</td></tr>")
 
     key_changes = [c for c in d["rating_changes"] if c["key_firm"] or c["action"] in ("up", "down")]
     if key_changes:

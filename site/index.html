@@ -73,7 +73,9 @@ header h1 { font-size: 1.5rem; }
 @media (max-width: 640px) { .stats { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 
 section { display: grid; gap: 12px; }
-.goals { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.goals { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; }
+.goal-card .stretch { border-top: 1px dashed var(--line); padding-top: 8px; }
+.status.mini-st { font-size: .62rem; padding: 1px 6px; }
 .goal-card { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 14px 16px; display: grid; gap: 8px; }
 .goal-card.active { border-color: var(--gold); }
 .goal-card .top { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
@@ -283,13 +285,18 @@ footer { font-size: .8rem; color: var(--muted); display: grid; gap: 4px; }
   // Goal cards
   $("goals").innerHTML = goals.map((g) => {
     const normal = g.forecast.scenarios.find((x) => x.name === "Normal") || g.forecast.scenarios[0];
-    const onTrack = !!normal.goal_reached_month && normal.goal_reached_month <= g.date.slice(0, 7);
+    const onTrack = g.on_track != null ? g.on_track : (!!normal.goal_reached_month && normal.goal_reached_month <= g.date.slice(0, 7));
     const st = g.reached ? ["done", "Reached"] : onTrack ? ["ok", "On track"] : ["behind", "Behind"];
+    const sx = g.stretch;
+    const stretchRow = sx && !g.reached ? `<div class="row stretch"><span>Stretch: by ${monthYear(new Date(sx.date + "T00:00:00"), "short")}
+        <span class="status mini-st ${sx.on_track ? "ok" : "behind"}">${sx.on_track ? "On track" : "Behind"}</span></span>
+        <span class="num">${aud(sx.required_monthly)}/mo</span></div>` : "";
     return `<div class="goal-card${g.name === d.goal_name ? " active" : ""}">
       <div class="top"><strong>${g.name}</strong><span class="status ${st[0]}">${st[1]}</span></div>
       <div class="mini"><span style="width:${g.progress_pct}%"></span></div>
       <div class="row"><span class="num">${g.progress_pct}% · ${aud(g.gap_aud)} to go</span><span>by ${monthYear(new Date(g.date + "T00:00:00"), "short")}</span></div>
       <div class="row"><span>Needed per month</span><span class="num">${aud(g.forecast.required_monthly)}</span></div>
+      ${stretchRow}
     </div>`;
   }).join("");
 

@@ -94,15 +94,21 @@ def render(page, d):
     cards = []
     for g in goals:
         n = next((s for s in g["forecast"]["scenarios"] if s["name"] == "Normal"), g["forecast"]["scenarios"][0])
-        on_track = n.get("goal_reached_month") and n["goal_reached_month"] <= g["date"][:7]
+        on_track = g.get("on_track", n.get("goal_reached_month") and n["goal_reached_month"] <= g["date"][:7])
         st = ("done", "Reached") if g["reached"] else ("ok", "On track") if on_track else ("behind", "Behind")
+        sx = g.get("stretch")
+        stretch_row = "" if not sx or g["reached"] else (
+            f'<div class="row stretch"><span>Stretch: by {month_year(sx["date"])} '
+            f'<span class="status mini-st {"ok" if sx["on_track"] else "behind"}">{"On track" if sx["on_track"] else "Behind"}</span></span>'
+            f'<span class="num">{aud(sx["required_monthly"])}/mo</span></div>')
         cards.append(
             f'<div class="goal-card{" active" if g is active else ""}">'
             f'<div class="top"><strong>{escape(g["name"])}</strong><span class="status {st[0]}">{st[1]}</span></div>'
             f'<div class="mini"><span style="width:{g["progress_pct"]}%"></span></div>'
             f'<div class="row"><span class="num">{g["progress_pct"]}% · {aud(g["gap_aud"])} to go</span>'
             f'<span>by {month_year(g["date"])}</span></div>'
-            f'<div class="row"><span>Needed per month</span><span class="num">{aud(g["forecast"]["required_monthly"])}</span></div></div>')
+            f'<div class="row"><span>Needed per month</span><span class="num">{aud(g["forecast"]["required_monthly"])}</span></div>'
+            f'{stretch_row}</div>')
     page = fill(page, "goals", "".join(cards))
 
     page = fill(page, "targetLabel", f'{escape(active["name"])} · {month_year(active["date"], False)}')

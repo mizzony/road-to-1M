@@ -265,7 +265,7 @@ def forecast(current, today, goal, target_date):
     for s in CONFIG["scenarios"]:
         r = (1 + s["annual_return"]) ** (1 / 12) - 1
         v, path, hit, hit_month = current, [], None, None
-        for m in range(1, 121):
+        for m in range(1, 181):
             v = v * (1 + r) + s["monthly"]
             if m <= months:
                 path.append({"month": add_months(today, m).strftime("%Y-%m"), "value": round(v)})
@@ -285,6 +285,12 @@ def forecast(current, today, goal, target_date):
         needed = (goal - current * g) * r / (g - 1)
     return {"months_left": months, "required_monthly": max(0, round(needed)),
             "scenarios": scenarios}
+
+
+def on_track(fc, target_date):
+    """On track = the Normal scenario (your usual monthly deposit) reaches the goal by the date."""
+    n = next((x for x in fc["scenarios"] if x["name"] == "Normal"), fc["scenarios"][0])
+    return bool(n.get("goal_reached_month") and n["goal_reached_month"] <= target_date[:7])
 
 
 # ---------- main ----------
@@ -397,6 +403,11 @@ def main():
                       "gap_aud": max(0, round(g["amount"] - total)),
                       "reached": total >= g["amount"],
                       "forecast": forecast(total, today, g["amount"], g["date"])})
+        goals[-1]["on_track"] = on_track(goals[-1]["forecast"], g["date"])
+        if g.get("stretch_date"):
+            sf = forecast(total, today, g["amount"], g["stretch_date"])
+            goals[-1]["stretch"] = {"date": g["stretch_date"], "required_monthly": sf["required_monthly"],
+                                    "on_track": on_track(sf, g["stretch_date"])}
     active = next((g for g in goals if not g["reached"]), goals[-1])
     data = {
         "generated_at": datetime.now().strftime("%d %b %Y %H:%M"),
