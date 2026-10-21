@@ -98,6 +98,9 @@ def fetch_live(holdings):
     prices = {t: float(last[t]) for t in tickers}
     fx = {"AUD": 1.0}
     fx.update({c: float(last[f"{c}AUD=X"]) for c in currencies})
+    week_ago = close.loc[:(date.today() - timedelta(days=7)).isoformat()]
+    wk = week_ago.iloc[-1] if len(week_ago) else close.iloc[0]
+    prev_prices = {t: float(wk[t]) if wk[t] == wk[t] else prices[t] for t in tickers}
 
     recent = close.loc[(date.today() - timedelta(days=183)).isoformat():]
     # Shares listed recently (e.g. SpaceX) have no earlier prices: use their first price
@@ -110,7 +113,7 @@ def fetch_live(holdings):
             total += h["quantity"] * float(row[h["ticker"]]) * rate
         if idx.date() <= date.today():  # skip the unfinished current week (its label is a future Friday)
             history.append({"date": idx.date().isoformat(), "total_aud": round(total)})
-    return prices, fx, history
+    return prices, fx, history, prev_prices
 
 
 def fetch_rating_changes(holdings, days):
@@ -143,7 +146,87 @@ def fetch_rating_changes(holdings, days):
     return out
 
 
+def fallback_sector(h):
+    ac = h["asset_class"].lower()
+    if ac == "gold":
+        return "Gold", "Gold"
+    if ac == "etf":
+        return "ETF / Fund", "ETF"
+    return "Other", ""
+
+
+def fetch_profiles(holdings):
+    """Sector and industry for each ticker (from Yahoo Finance)."""
+    import yfinance as yf
+    out = {}
+    for h in holdings:
+        t = h["ticker"]
+        if t in out:
+            continue
+        sector, industry = fallback_sector(h)
+        if sector == "Other":
+            try:
+                info = yf.Ticker(t).info or {}
+                sector = info.get("sector") or sector
+                industry = info.get("industry") or industry
+            except Exception:
+                pass
+        out[t] = (sector, industry)
+    return out
+
+
+def fetch_news(items, days=7, per_ticker=2):
+    """Latest headlines for the given (ticker, name) pairs. Handles old and new yfinance formats."""
+    import yfinance as yf
+    since = datetime.now(timezone.utc) - timedelta(days=days)
+    out = []
+    for t, name in items:
+        try:
+            raw = yf.Ticker(t).news or []
+        except Exception:
+            continue
+        got = 0
+        for n in raw:
+            c = n.get("content", n)
+            title = c.get("title")
+            link = (c.get("canonicalUrl") or {}).get("url") or (c.get("clickThroughUrl") or {}).get("url") or c.get("link")
+            publisher = (c.get("provider") or {}).get("displayName") or c.get("publisher", "")
+            when = c.get("pubDate") or c.get("providerPublishTime")
+            try:
+                dt = (datetime.fromtimestamp(when, timezone.utc) if isinstance(when, (int, float))
+                      else datetime.fromisoformat(str(when).replace("Z", "+00:00")))
+            except Exception:
+                continue
+            if not title or not link or dt < since:
+                continue
+            out.append({"ticker": t, "name": name, "title": title, "link": link,
+                        "publisher": publisher, "date": dt.date().isoformat()})
+            got += 1
+            if got >= per_ticker:
+                break
+    out.sort(key=lambda n: n["date"], reverse=True)
+    return out
+
+
 # ---------- demo data ----------
+DEMO_PREV_PRICES = {"AAPL": 222, "MSFT": 431, "NVDA": 131, "VOO": 533, "VGE.AX": 81,
+                    "PTT.BK": 34, "CPALL.BK": 54, "GC=F": 2610}
+DEMO_PROFILES = {"AAPL": ("Technology", "Consumer Electronics"), "MSFT": ("Technology", "Software"),
+                 "NVDA": ("Technology", "Semiconductors"), "VOO": ("ETF / Fund", "ETF"),
+                 "VGE.AX": ("ETF / Fund", "ETF"), "PTT.BK": ("Energy", "Oil & Gas"),
+                 "CPALL.BK": ("Consumer Defensive", "Grocery Stores"), "GC=F": ("Gold", "Gold")}
+
+
+def demo_news(today):
+    d = lambda n: (today - timedelta(days=n)).isoformat()
+    return [
+        {"ticker": "NVDA", "name": "Nvidia", "title": "Example headline: chip demand stays strong into next quarter",
+         "link": "https://finance.yahoo.com/quote/NVDA/news", "publisher": "Demo News", "date": d(1)},
+        {"ticker": "MSFT", "name": "Microsoft", "title": "Example headline: cloud growth slows slightly",
+         "link": "https://finance.yahoo.com/quote/MSFT/news", "publisher": "Demo News", "date": d(2)},
+        {"ticker": "GC=F", "name": "Gold", "title": "Example headline: gold rises as the US dollar weakens",
+         "link": "https://finance.yahoo.com/quote/GC=F/news", "publisher": "Demo News", "date": d(3)},
+    ]
 def demo_rating_changes(today):
     d = lambda n: (today - timedelta(days=n)).isoformat()
     return [
@@ -214,10 +297,12 @@ def main():
     today = date.today()
     if args.demo:
         holdings = load_holdings(ROOT / "holdings.example.csv")
-        prices, fx = DEMO_PRICES, DEMO_FX
+        prices, fx, prev_prices = DEMO_PRICES, DEMO_FX, DEMO_PREV_PRICES
+        profiles = DEMO_PROFILES
     else:
         holdings = load_holdings(args.holdings)
-        prices, fx, live_history = fetch_live(holdings)
+        prices, fx, live_history, prev_prices = fetch_live(holdings)
+        profiles = fetch_profiles(holdings)
 
     rows, total, cost = [], 0.0, 0.0
     for h in holdings:
@@ -231,10 +316,47 @@ def main():
                      "quantity": round(h["quantity"], 4), "price": round(prices[h["ticker"]], 2),
                      "currency": h["currency"], "value_aud": round(value),
                      "gain_aud": round(value - c),
-                     "gain_pct": round((value - c) / c * 100, 1) if c else None})
+                     "gain_pct": round((value - c) / c * 100, 1) if c else None,
+                     "cost_aud": round(c),
+                     "sector": profiles.get(h["ticker"], fallback_sector(h))[0],
+                     "industry": profiles.get(h["ticker"], fallback_sector(h))[1],
+                     "week_pct": round((prices[h["ticker"]] / prev_prices[h["ticker"]] - 1) * 100, 1)
+                                 if prev_prices.get(h["ticker"]) else None})
     for r in rows:
         r["weight_pct"] = round(r["value_aud"] / total * 100, 1)
     rows.sort(key=lambda r: -r["value_aud"])
+
+    # Top movers: one line per stock (accounts merged)
+    merged = {}
+    for r in rows:
+        m = merged.setdefault(r["ticker"], {"ticker": r["ticker"], "name": r["name"], "sector": r["sector"],
+                                            "week_pct": r["week_pct"], "value_aud": 0, "gain_aud": 0, "cost_aud": 0})
+        m["value_aud"] += r["value_aud"]; m["gain_aud"] += r["gain_aud"]; m["cost_aud"] += r["cost_aud"]
+    for m in merged.values():
+        m["gain_pct"] = round(m["gain_aud"] / m["cost_aud"] * 100, 1) if m["cost_aud"] else None
+    def top(key, n=10):
+        have = [m for m in merged.values() if m[key] is not None]
+        up = sorted([m for m in have if m[key] > 0], key=lambda m: -m[key])[:n]
+        down = sorted([m for m in have if m[key] < 0], key=lambda m: m[key])[:n]
+        return {"gainers": up, "losers": down}
+    movers = {"week": top("week_pct"), "total": top("gain_pct")}
+
+    # By industry (sector)
+    sec = {}
+    for r in rows:
+        x = sec.setdefault(r["sector"], {"sector": r["sector"], "value_aud": 0, "cost_aud": 0, "prev_aud": 0.0, "holdings": {}})
+        x["value_aud"] += r["value_aud"]; x["cost_aud"] += r["cost_aud"]
+        x["prev_aud"] += r["value_aud"] / (1 + (r["week_pct"] or 0) / 100)
+        x["holdings"][r["ticker"]] = x["holdings"].get(r["ticker"], 0) + r["value_aud"]
+    sectors = []
+    for x in sec.values():
+        sectors.append({"sector": x["sector"], "value_aud": x["value_aud"],
+                        "pct": round(x["value_aud"] / total * 100, 1),
+                        "week_pct": round((x["value_aud"] / x["prev_aud"] - 1) * 100, 1) if x["prev_aud"] else None,
+                        "gain_aud": x["value_aud"] - x["cost_aud"],
+                        "gain_pct": round((x["value_aud"] - x["cost_aud"]) / x["cost_aud"] * 100, 1) if x["cost_aud"] else None,
+                        "top": [t for t, _ in sorted(x["holdings"].items(), key=lambda kv: -kv[1])[:4]]})
+    sectors.sort(key=lambda x: -x["value_aud"])
 
     allocation = {}
     for r in rows:
@@ -243,11 +365,22 @@ def main():
     if args.demo:
         history = demo_history(today, total)
         changes = demo_rating_changes(today)
+        news = demo_news(today)
     else:
         history = live_history
         if history and history[-1]["date"] != today.isoformat():
             history.append({"date": today.isoformat(), "total_aud": round(total)})
         changes = fetch_rating_changes(holdings, CONFIG["rating_lookback_days"])
+        # News for: biggest movers this week, big holdings, and stocks with a major-bank rating change
+        pick = [m["ticker"] for m in movers["week"]["gainers"][:3] + movers["week"]["losers"][:3]]
+        pick += [t for t, _ in sorted(merged.items(), key=lambda kv: -kv[1]["value_aud"])[:3]]
+        key = [f.lower() for f in CONFIG["key_firms"]]
+        pick += [c["ticker"] for c in changes if any(k in c["firm"].lower() for k in key) and c["action"] in ("up", "down")]
+        seen, items = set(), []
+        for t in pick:
+            if t not in seen and t != "GC=F":
+                seen.add(t); items.append((t, merged[t]["name"]))
+        news = fetch_news(items[:10])
 
     key = [f.lower() for f in CONFIG["key_firms"]]
     for c in changes:
@@ -282,6 +415,9 @@ def main():
                        for k, v in sorted(allocation.items(), key=lambda kv: -kv[1])],
         "history": history,
         "rating_changes": changes,
+        "movers": movers,
+        "sectors": sectors,
+        "news": news,
         "site_url": CONFIG.get("site_url", ""),
     }
 

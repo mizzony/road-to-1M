@@ -155,8 +155,55 @@ def render(page, d):
     page = fill(page, "rows", "".join(rows))
     page = fill(page, "fx", "Exchange rates to AUD: " + " · ".join(
         f"1 {k} = {v:.4f}" for k, v in d["fx"].items() if k != "AUD"))
+    page = render_extras(page, d)
     if d["mode"] == "demo":
         page = page.replace('id="mode" class="badge" hidden', 'id="mode" class="badge"')
+    return page
+
+
+def pct(v):
+    return "–" if v is None else ("+" if v > 0 else "−" if v < 0 else "") + f"{abs(v):.1f}%"
+
+
+def cls(v):
+    return "" if v is None else ("up" if v >= 0 else "down")
+
+
+def mover_list(items, key):
+    if not items:
+        return '<li><span class="note" style="grid-column:1/-1">None</span></li>'
+    return "".join(
+        f'<li><span class="rank">{i + 1}</span>'
+        f'<span class="nm"><strong>{escape(m["name"])}</strong><span class="sub">{escape(m["ticker"])} · {escape(m.get("sector") or "")}</span></span>'
+        f'<span class="pc {cls(m[key])}">{pct(m[key])}<span class="sub">{aud(m["value_aud"])}</span></span></li>'
+        for i, m in enumerate(items))
+
+
+def render_extras(page, d):
+    if d.get("movers"):
+        page = fill(page, "gainers", mover_list(d["movers"]["week"]["gainers"], "week_pct"))
+        page = fill(page, "losers", mover_list(d["movers"]["week"]["losers"], "week_pct"))
+    else:
+        page = page.replace('<section id="moversSection">', '<section id="moversSection" hidden>')
+    if d.get("sectors"):
+        mx = max(x["pct"] for x in d["sectors"]) or 1
+        page = fill(page, "sectors", "".join(
+            f'<tr><td><strong>{escape(x["sector"])}</strong><span class="sub">{escape(", ".join(x["top"]))}</span></td>'
+            f'<td class="r"><span class="share"><i style="width:{max(4, x["pct"] / mx * 36):.0f}px"></i>'
+            f'<span class="num">{x["pct"]}%</span></span><span class="sub num">{aud(x["value_aud"])}</span></td>'
+            f'<td class="r num {cls(x["week_pct"])}">{pct(x["week_pct"])}</td>'
+            f'<td class="r num {cls(x["gain_pct"])}">{pct(x["gain_pct"])}<span class="sub">{signed(x["gain_aud"])}</span></td></tr>'
+            for x in d["sectors"]))
+    else:
+        page = page.replace('<section id="sectorsSection">', '<section id="sectorsSection" hidden>')
+    if d.get("news") is not None:
+        page = fill(page, "news", "".join(
+            f'<li><a href="{escape(n["link"])}" target="_blank" rel="noopener">{escape(n["title"])}</a>'
+            f'<span class="sub"><span class="tkchip">{escape(n["ticker"])}</span>{escape(n["publisher"])} · '
+            f'{date.fromisoformat(n["date"]).strftime("%-d %b")}</span></li>'
+            for n in d["news"]) or '<li><span class="note">No news for your holdings this week.</span></li>')
+    else:
+        page = page.replace('<section id="newsSection">', '<section id="newsSection" hidden>')
     return page
 
 

@@ -30,6 +30,10 @@ def signed(n):
     return ("+" if n >= 0 else "−") + aud(abs(n))
 
 
+def week_txt(v):
+    return "" if v is None else f"{v:+.1f}% this week"
+
+
 def build_html():
     green, red, muted = "#2E7D4F", "#B3412F", "#5E6B66"
     wk = d["week_change_aud"]
@@ -63,6 +67,24 @@ def build_html():
     movers = sorted(d["holdings"], key=lambda h: -(h["gain_pct"] or 0))
     top = ", ".join(f"{h['ticker']} {h['gain_pct']:+.1f}%" for h in movers[:3] if h["gain_pct"] is not None)
 
+    extra = ""
+    mv = d.get("movers", {}).get("week")
+    if mv:
+        fmt = lambda m: f"{m['ticker']} {m['week_pct']:+.1f}%"
+        extra += (f"<h3 style='margin:20px 0 4px'>This week</h3>"
+                  f"<p style='margin:4px 0'><b style='color:{green}'>Up:</b> {', '.join(fmt(m) for m in mv['gainers'][:5]) or '–'}</p>"
+                  f"<p style='margin:4px 0'><b style='color:{red}'>Down:</b> {', '.join(fmt(m) for m in mv['losers'][:5]) or '–'}</p>")
+    if d.get("sectors"):
+        extra += "<h3 style='margin:20px 0 4px'>By industry</h3><table style='border-collapse:collapse;font-size:14px'>" + "".join(
+            f"<tr><td style='padding:3px 12px 3px 0'>{x['sector']}</td><td style='padding:3px 12px 3px 0'>{x['pct']}%</td>"
+            f"<td style='padding:3px 0;color:{green if (x['week_pct'] or 0) >= 0 else red}'>"
+            f"{week_txt(x['week_pct'])}</td></tr>"
+            for x in d["sectors"][:6]) + "</table>"
+    if d.get("news"):
+        extra += "<h3 style='margin:20px 0 4px'>News</h3><ul style='padding-left:18px;margin:6px 0'>" + "".join(
+            f"<li style='margin-bottom:4px'><b>{n['ticker']}</b>: <a href='{n['link']}' style='color:#2D6B5E'>{n['title']}</a> "
+            f"<span style='color:{muted}'>({n['publisher']})</span></li>" for n in d["news"][:6]) + "</ul>"
+
     link = (f"<p><a href='{d['site_url']}' style='color:#2D6B5E'>Open the full dashboard →</a></p>"
             if d.get("site_url") else "")
     demo = "<p style='color:#A9771F'><b>Demo data</b> — not your real portfolio.</p>" if d["mode"] == "demo" else ""
@@ -82,6 +104,7 @@ def build_html():
   </table>
   <h3 style="margin:20px 0 4px">Analyst changes</h3>
   {changes}
+  {extra}
   <h3 style="margin:20px 0 4px">Goals</h3>
   <table style="border-collapse:collapse;font-size:14px">{goal_rows}</table>
   {link}
