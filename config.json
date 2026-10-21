@@ -34,17 +34,17 @@
   "scenarios": [
     {
       "name": "Slow",
-      "monthly": 3000,
+      "monthly": 5000,
       "annual_return": 0.0
     },
     {
       "name": "Normal",
-      "monthly": 4000,
+      "monthly": 5500,
       "annual_return": 0.06
     },
     {
       "name": "Strong",
-      "monthly": 5000,
+      "monthly": 6000,
       "annual_return": 0.1
     }
   ]
