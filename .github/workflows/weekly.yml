@@ -15,41 +15,53 @@ permissions:
   id-token: write
 
 jobs:
-  update:
+  # 1) REAL data -> private weekly email only (never published)
+  email:
+    if: github.event_name != 'push'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+      - run: pip install -r requirements.txt
+
+      - name: "Step A: build report from your real holdings"
+        env:
+          HOLDINGS_CSV: ${{ secrets.HOLDINGS_CSV }}
+        run: |
+          if [ -z "$HOLDINGS_CSV" ]; then
+            echo "::warning::HOLDINGS_CSV secret is empty - using demo data"
+            python scripts/update.py --demo
+          else
+            printf '%s\n' "$HOLDINGS_CSV" > holdings.csv
+            echo "Holdings rows: $(($(wc -l < holdings.csv) - 1))"
+            python scripts/update.py --holdings holdings.csv
+            rm holdings.csv
+          fi
+
+      - name: "Step B: send the email"
+        env:
+          GMAIL_USER: ${{ secrets.GMAIL_USER }}
+          GMAIL_APP_PASSWORD: ${{ secrets.GMAIL_APP_PASSWORD }}
+          EMAIL_TO: ${{ secrets.EMAIL_TO }}
+        run: python scripts/send_email.py
+
+  # 2) DEMO data -> public GitHub Pages site (runs even if the email job fails)
+  site:
     runs-on: ubuntu-latest
     environment:
       name: github-pages
       url: ${{ steps.deploy.outputs.page_url }}
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
         with:
           python-version: "3.12"
       - run: pip install -r requirements.txt
-
-      # 1) REAL data -> private weekly email only (never published)
-      - name: Build real report and send email
-        if: github.event_name != 'push'
-        env:
-          HOLDINGS_CSV: ${{ secrets.HOLDINGS_CSV }}
-          GMAIL_USER: ${{ secrets.GMAIL_USER }}
-          GMAIL_APP_PASSWORD: ${{ secrets.GMAIL_APP_PASSWORD }}
-          EMAIL_TO: ${{ secrets.EMAIL_TO }}
-        run: |
-          if [ -z "$HOLDINGS_CSV" ]; then
-            echo "No HOLDINGS_CSV secret yet - sending a demo email instead"
-            python scripts/update.py --demo
-          else
-            printf '%s\n' "$HOLDINGS_CSV" > holdings.csv
-            python scripts/update.py --holdings holdings.csv
-            rm holdings.csv
-          fi
-          if [ -n "$GMAIL_USER" ]; then python scripts/send_email.py; else echo "No email secrets - skipping email"; fi
-
-      # 2) DEMO data -> public GitHub Pages site
       - name: Build public demo site
         run: python scripts/update.py --demo
-      - uses: actions/upload-pages-artifact@v3
+      - uses: actions/upload-pages-artifact@v4
         with:
           path: site
       - id: deploy

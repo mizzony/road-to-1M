@@ -99,13 +99,22 @@ def main():
         print("Wrote email_preview.html —", subject)
         return
 
-    user, pw, to = os.environ["GMAIL_USER"], os.environ["GMAIL_APP_PASSWORD"], os.environ["EMAIL_TO"]
+    missing = [k for k in ("GMAIL_USER", "GMAIL_APP_PASSWORD", "EMAIL_TO") if not os.environ.get(k, "").strip()]
+    if missing:
+        raise SystemExit(f"Missing secret(s): {', '.join(missing)}. Add them in Settings > Secrets and variables > Actions.")
+    user = os.environ["GMAIL_USER"].strip()
+    pw = os.environ["GMAIL_APP_PASSWORD"].replace(" ", "").strip()
+    to = os.environ["EMAIL_TO"].strip()
     msg = MIMEMultipart("alternative")
     msg["Subject"], msg["From"], msg["To"] = subject, user, to
     msg.attach(MIMEText(html, "html"))
-    with smtplib.SMTP_SSL("smtp.gmail.com", 465) as s:
-        s.login(user, pw)
-        s.sendmail(user, [to], msg.as_string())
+    try:
+        with smtplib.SMTP_SSL("smtp.gmail.com", 465) as s:
+            s.login(user, pw)
+            s.sendmail(user, [to], msg.as_string())
+    except smtplib.SMTPAuthenticationError:
+        raise SystemExit("Gmail rejected the login. Check GMAIL_USER is your full Gmail address and "
+                         "GMAIL_APP_PASSWORD is a 16-letter App password (not your normal password).")
     print("Sent:", subject)
 
 
