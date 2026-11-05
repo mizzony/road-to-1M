@@ -85,6 +85,28 @@ def fetch_live(holdings):
     if bad_fx:
         raise SystemExit(f"::error::No exchange rate for: {', '.join(bad_fx)}")
     missing = [t for t in tickers if t not in close.columns or close[t].isna().all()]
+    # Yahoo sometimes fails one ticker for a moment (e.g. "database is locked"):
+    # try those again, one by one, before giving up on them
+    for attempt in range(3):
+        if not missing:
+            break
+        import time
+        time.sleep(3 * (attempt + 1))
+        for t in list(missing):
+            try:
+                one = yf.download(t, start=start, progress=False, auto_adjust=False, threads=False)["Close"]
+                if hasattr(one, "columns"):
+                    one = one[t] if t in one.columns else one.iloc[:, 0]
+                one = one.reindex(close.index.union(one.index)).ffill()
+                if one.notna().any():
+                    close = close.reindex(close.index.union(one.index)).ffill()
+                    close[t] = one
+                    close = close.ffill()
+                    missing.remove(t)
+                    print(f"Got prices for {t} on retry {attempt + 1}")
+            except Exception as e:
+                print(f"Retry {attempt + 1} for {t} failed: {e}")
+    LAST_CLOSE = close
     if missing:
         print(f"::warning::No prices for {', '.join(missing)} - skipped. Check these tickers on finance.yahoo.com")
     holdings[:] = [h for h in holdings if h["ticker"] not in missing]
