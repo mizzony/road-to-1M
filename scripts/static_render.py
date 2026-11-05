@@ -138,7 +138,11 @@ def render(page, d):
         items = '<li><span class="note" style="grid-column:1/-1">No rating changes for your US shares this week.</span></li>'
     page = fill(page, "changes", items)
 
-    pal = ["var(--teal)", "color-mix(in srgb, var(--teal) 50%, var(--surface))", "var(--gold)", "var(--ink)", "color-mix(in srgb, var(--ink) 45%, var(--surface))", "var(--muted)", "color-mix(in srgb, var(--gold) 50%, var(--surface))", "var(--up)"]
+    base = {"US share": "--teal", "Gold": "--gold", "Thai share": "--ink", "ETF": "--muted", "AU share": "--up"}
+    seen, pal = {}, []
+    for a in d["allocation"]:
+        b = a["asset_class"].split(" (")[0]; v = base.get(b, "--muted"); seen[b] = seen.get(b, 0) + 1
+        pal.append(f"var({v})" if seen[b] == 1 else f"color-mix(in srgb, var({v}) {45 if seen[b] == 2 else 25}%, var(--surface))")
     page = fill(page, "alloc", "".join(
         f'<span style="flex:{a["pct"]};background:{pal[i % len(pal)]}"></span>'
         for i, a in enumerate(d["allocation"])))

@@ -441,7 +441,12 @@ footer { font-size: .8rem; color: var(--muted); display: grid; gap: 4px; }
     : '<li><span class="note">No news for your holdings this week.</span></li>';
 
   // By type
-  const palette = ["var(--teal)", "color-mix(in srgb, var(--teal) 50%, var(--surface))", "var(--gold)", "var(--ink)", "color-mix(in srgb, var(--ink) 45%, var(--surface))", "var(--muted)", "color-mix(in srgb, var(--gold) 50%, var(--surface))", "var(--up)"];
+  const base = { "US share": "--teal", "Gold": "--gold", "Thai share": "--ink", "ETF": "--muted", "AU share": "--up" };
+  const seen = {};
+  const palette = d.allocation.map((a) => {
+    const b = a.asset_class.replace(/ \(.*\)$/, ""), v = base[b] || "--muted", n = (seen[b] = (seen[b] || 0) + 1);
+    return n === 1 ? `var(${v})` : `color-mix(in srgb, var(${v}) ${n === 2 ? 45 : 25}%, var(--surface))`;
+  });
   $("alloc").innerHTML = d.allocation.map((a, i) =>
     `<span style="flex:${a.pct};background:${palette[i % palette.length]}" title="${esc(a.asset_class)} ${a.pct}%"></span>`).join("");
   $("types").innerHTML = d.allocation.map((a, i) => `<tr>
