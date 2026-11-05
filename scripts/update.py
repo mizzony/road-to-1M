@@ -422,9 +422,23 @@ def main():
                         "top": [t for t, _ in sorted(x["holdings"].items(), key=lambda kv: -kv[1])[:4]]})
     sectors.sort(key=lambda x: -x["value_aud"])
 
-    allocation = {}
+    # By type (US share, Thai share, AU share, ETF, Gold): value, gain and this week's change
+    alloc = {}
     for r in rows:
-        allocation[r["asset_class"]] = allocation.get(r["asset_class"], 0) + r["value_aud"]
+        x = alloc.setdefault(r["asset_class"], {"value_aud": 0, "cost_aud": 0, "prev_aud": 0.0, "holdings": {}})
+        x["value_aud"] += r["value_aud"]; x["cost_aud"] += r["cost_aud"]
+        x["prev_aud"] += r["value_aud"] / (1 + (r["week_pct"] or 0) / 100)
+        x["holdings"][r["ticker"]] = x["holdings"].get(r["ticker"], 0) + r["value_aud"]
+    allocation = []
+    for k, x in sorted(alloc.items(), key=lambda kv: -kv[1]["value_aud"]):
+        allocation.append({"asset_class": k, "value_aud": x["value_aud"],
+                           "pct": round(x["value_aud"] / total * 100, 1),
+                           "cost_aud": x["cost_aud"],
+                           "gain_aud": x["value_aud"] - x["cost_aud"],
+                           "gain_pct": round((x["value_aud"] - x["cost_aud"]) / x["cost_aud"] * 100, 1) if x["cost_aud"] else None,
+                           "week_aud": x["value_aud"] - x["prev_aud"],
+                           "week_pct": round((x["value_aud"] / x["prev_aud"] - 1) * 100, 1) if x["prev_aud"] else None,
+                           "top": [t for t, _ in sorted(x["holdings"].items(), key=lambda kv: -kv[1])[:4]]})
 
     if args.demo:
         history = demo_history(today, total)
@@ -483,8 +497,7 @@ def main():
         "gain_pct": round((total - cost) / cost * 100, 1) if cost else None,
         "week_change_aud": week_change,
         "fx": fx, "holdings": rows,
-        "allocation": [{"asset_class": k, "value_aud": v, "pct": round(v / total * 100, 1)}
-                       for k, v in sorted(allocation.items(), key=lambda kv: -kv[1])],
+        "allocation": allocation,
         "history": history,
         "rating_changes": changes,
         "movers": movers,

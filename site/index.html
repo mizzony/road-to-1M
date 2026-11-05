@@ -120,6 +120,7 @@ section { display: grid; gap: 12px; }
 .alloc { display: flex; height: 26px; border-radius: 6px; overflow: hidden; gap: 2px; }
 .alloc span { display: block; }
 .legend { display: flex; flex-wrap: wrap; gap: 8px 18px; font-size: .85rem; }
+.dot { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 8px; vertical-align: 0; }
 .legend i { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 6px; vertical-align: -1px; }
 
 /* Holdings */
@@ -177,6 +178,18 @@ footer { font-size: .8rem; color: var(--muted); display: grid; gap: 4px; }
     </div>
   </section>
 
+  <section id="typeSection">
+    <h2>By type</h2>
+    <div class="alloc" id="alloc"></div>
+    <div class="panel table-wrap">
+      <table class="sect">
+        <thead><tr><th>Type</th><th class="r">Share</th><th class="r">This week</th><th class="r">Since bought</th></tr></thead>
+        <tbody id="types"></tbody>
+      </table>
+    </div>
+    <p class="note">Gain is value now minus what you paid, in AUD at today's exchange rates.</p>
+  </section>
+
   <section>
     <h2>Goals</h2>
     <div class="goals" id="goals"></div>
@@ -227,12 +240,6 @@ footer { font-size: .8rem; color: var(--muted); display: grid; gap: 4px; }
     <h2>News</h2>
     <div class="panel"><ul class="news" id="news"></ul></div>
     <p class="note">Headlines for your biggest movers and holdings, from Yahoo Finance. Tap to read the full story.</p>
-  </section>
-
-  <section>
-    <h2>Where your money is</h2>
-    <div class="alloc" id="alloc"></div>
-    <div class="legend" id="legend"></div>
   </section>
 
   <section>
@@ -430,12 +437,15 @@ footer { font-size: .8rem; color: var(--muted); display: grid; gap: 4px; }
       <span class="sub"><span class="tkchip">${esc(n.ticker)}</span>${esc(n.publisher)} · ${new Date(n.date + "T00:00:00").toLocaleDateString("en-AU", { day: "numeric", month: "short" })}</span></li>`).join("")
     : '<li><span class="note">No news for your holdings this week.</span></li>';
 
-  // Allocation
+  // By type
   const palette = ["--teal", "--gold", "--ink", "--muted", "--up"];
   $("alloc").innerHTML = d.allocation.map((a, i) =>
-    `<span style="flex:${a.pct};background:var(${palette[i % palette.length]})" title="${a.asset_class} ${a.pct}%"></span>`).join("");
-  $("legend").innerHTML = d.allocation.map((a, i) =>
-    `<span><i style="background:var(${palette[i % palette.length]})"></i>${a.asset_class} <span class="num">${a.pct}%</span> · <span class="num">${aud(a.value_aud)}</span></span>`).join("");
+    `<span style="flex:${a.pct};background:var(${palette[i % palette.length]})" title="${esc(a.asset_class)} ${a.pct}%"></span>`).join("");
+  $("types").innerHTML = d.allocation.map((a, i) => `<tr>
+      <td><strong><i class="dot" style="background:var(${palette[i % palette.length]})"></i>${esc(a.asset_class)}</strong><span class="sub">${(a.top || []).map(esc).join(", ")}</span></td>
+      <td class="r"><span class="num">${a.pct}%</span><span class="sub num">${aud(a.value_aud)}</span></td>
+      <td class="r num ${tone(a.week_pct)}">${pct(a.week_pct)}${a.week_aud != null ? `<span class="sub">${signed(a.week_aud)}</span>` : ""}</td>
+      <td class="r num ${tone(a.gain_aud)}">${a.gain_aud != null ? signed(a.gain_aud) : "–"}<span class="sub">${pct(a.gain_pct)}</span></td></tr>`).join("");
 
   // Holdings
   $("rows").innerHTML = d.holdings.map((h) => `
