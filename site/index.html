@@ -441,11 +441,11 @@ footer { font-size: .8rem; color: var(--muted); display: grid; gap: 4px; }
     : '<li><span class="note">No news for your holdings this week.</span></li>';
 
   // By type
-  const palette = ["--teal", "--gold", "--ink", "--muted", "--up"];
+  const palette = ["var(--teal)", "color-mix(in srgb, var(--teal) 50%, var(--surface))", "var(--gold)", "var(--ink)", "color-mix(in srgb, var(--ink) 45%, var(--surface))", "var(--muted)", "color-mix(in srgb, var(--gold) 50%, var(--surface))", "var(--up)"];
   $("alloc").innerHTML = d.allocation.map((a, i) =>
-    `<span style="flex:${a.pct};background:var(${palette[i % palette.length]})" title="${esc(a.asset_class)} ${a.pct}%"></span>`).join("");
+    `<span style="flex:${a.pct};background:${palette[i % palette.length]}" title="${esc(a.asset_class)} ${a.pct}%"></span>`).join("");
   $("types").innerHTML = d.allocation.map((a, i) => `<tr>
-      <td><strong><i class="dot" style="background:var(${palette[i % palette.length]})"></i>${esc(a.asset_class)}</strong><span class="sub">${(a.top || []).map(esc).join(", ")}</span></td>
+      <td><strong><i class="dot" style="background:${palette[i % palette.length]}"></i>${esc(a.asset_class)}</strong><span class="sub">${(a.top || []).map(esc).join(", ")}</span></td>
       <td class="r"><span class="num">${a.pct}%</span><span class="sub num">${aud(a.value_aud)}</span></td>
       <td class="r num ${tone(a.week_pct)}">${pct(a.week_pct)}${a.week_aud != null ? `<span class="sub">${signed(a.week_aud)}</span>` : ""}</td>
       <td class="r num ${tone(a.gain_aud)}">${a.gain_aud != null ? signed(a.gain_aud) : "–"}<span class="sub">${pct(a.gain_pct)}</span></td></tr>`).join("");

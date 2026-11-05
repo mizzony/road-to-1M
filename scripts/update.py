@@ -445,9 +445,16 @@ def main():
     sectors.sort(key=lambda x: -x["value_aud"])
 
     # By type (US share, Thai share, AU share, ETF, Gold): value, gain and this week's change
+    # A type held in more than one account is split by account, e.g. "US share (IG)" / "US share (Dime)"
+    accts = {}
+    for r in rows:
+        accts.setdefault(r["asset_class"], set()).add(r.get("account") or "")
+    def type_key(r):
+        a = r.get("asset_class")
+        return f'{a} ({r["account"]})' if len(accts[a]) > 1 and r.get("account") else a
     alloc = {}
     for r in rows:
-        x = alloc.setdefault(r["asset_class"], {"value_aud": 0, "cost_aud": 0, "prev_aud": 0.0, "holdings": {}})
+        x = alloc.setdefault(type_key(r), {"value_aud": 0, "cost_aud": 0, "prev_aud": 0.0, "holdings": {}})
         x["value_aud"] += r["value_aud"]; x["cost_aud"] += r["cost_aud"]
         x["prev_aud"] += r["value_aud"] / (1 + (r["week_pct"] or 0) / 100)
         x["holdings"][r["ticker"]] = x["holdings"].get(r["ticker"], 0) + r["value_aud"]

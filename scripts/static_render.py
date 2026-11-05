@@ -138,16 +138,16 @@ def render(page, d):
         items = '<li><span class="note" style="grid-column:1/-1">No rating changes for your US shares this week.</span></li>'
     page = fill(page, "changes", items)
 
-    pal = ["--teal", "--gold", "--ink", "--muted", "--up"]
+    pal = ["var(--teal)", "color-mix(in srgb, var(--teal) 50%, var(--surface))", "var(--gold)", "var(--ink)", "color-mix(in srgb, var(--ink) 45%, var(--surface))", "var(--muted)", "color-mix(in srgb, var(--gold) 50%, var(--surface))", "var(--up)"]
     page = fill(page, "alloc", "".join(
-        f'<span style="flex:{a["pct"]};background:var({pal[i % len(pal)]})"></span>'
+        f'<span style="flex:{a["pct"]};background:{pal[i % len(pal)]}"></span>'
         for i, a in enumerate(d["allocation"])))
     def _p(v):
         return "–" if v is None else ("+" if v > 0 else "−" if v < 0 else "") + f"{abs(v):.1f}%"
     def _c(v):
         return "" if v is None else ("up" if v >= 0 else "down")
     page = fill(page, "types", "".join(
-        f'<tr><td><strong><i class="dot" style="background:var({pal[i % len(pal)]})"></i>{escape(a["asset_class"])}</strong>'
+        f'<tr><td><strong><i class="dot" style="background:{pal[i % len(pal)]}"></i>{escape(a["asset_class"])}</strong>'
         f'<span class="sub">{escape(", ".join(a.get("top") or []))}</span></td>'
         f'<td class="r"><span class="num">{a["pct"]}%</span><span class="sub num">{aud(a["value_aud"])}</span></td>'
         f'<td class="r num {_c(a.get("week_pct"))}">{_p(a.get("week_pct"))}'
