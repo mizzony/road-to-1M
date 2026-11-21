@@ -160,7 +160,8 @@ def main():
     msg = MIMEMultipart("mixed")
     msg["Subject"], msg["From"], msg["To"] = subject, user, to
     msg.attach(body)
-    att = MIMEApplication(build_dashboard().encode(), _subtype="html")
+    # text/html (not "application/html") so Gmail and phone mail apps show it as a normal attachment
+    att = MIMEText(build_dashboard(), "html", "utf-8")
     att.add_header("Content-Disposition", "attachment", filename="dashboard.html")
     msg.attach(att)
     try:
